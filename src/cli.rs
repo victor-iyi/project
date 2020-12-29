@@ -49,15 +49,21 @@ pub struct Cli<'a> {
 }
 
 impl<'a> Cli<'a> {
-  fn get_matches() -> clap::ArgMatches<'a> {
+  pub fn new() -> Cli<'a> {
+    Cli {
+      matches: Cli::get_matches(),
+    }
+  }
+
+  pub fn get_matches() -> clap::ArgMatches<'a> {
     App::new("lotlinx")
-      .version("1.0")
-      .author("Victor I. Afolabi <vafolabi@lotlinx.com>")
-      .about("Lotlinx command line utilities")
+      .version(clap::crate_version!())
+      .author(clap::crate_authors!())
+      .about("Project template generator")
       // Create a new lotlinx project
       .subcommand(
         App::new("new")
-          .about("Creates a new Lotlinx project template")
+          .about("Creates a new project template")
           .arg(
             Arg::with_name("project")
               .help("Name of the project.")
@@ -81,8 +87,8 @@ impl<'a> Cli<'a> {
           ),
       )
       .subcommand(
-        App::new("push")
-          .about("pushes things")
+        App::new("init")
+          .about("Initialize new project from current dir.")
           .setting(AppSettings::SubcommandRequiredElseHelp)
           .subcommand(
             App::new("remote") // Subcommands can have their own subcommands,
@@ -97,17 +103,14 @@ impl<'a> Cli<'a> {
           .subcommand(App::new("local").about("pushes local things")),
       )
       .subcommand(
-        App::new("add")
-          .about("adds things")
-          .author("Someone Else") // Subcommands can list different authors
+        App::new("git")
+          .about("Initalize project from a GitHub")
           .version("v2.0 (I'm versioned differently") // or different version from their parents
           .setting(AppSettings::ArgRequiredElseHelp) // They can even have different settings
           .arg(
-            Arg::with_name("stuff")
-              .long("stuff")
-              .help("Stuff to add")
-              .takes_value(true)
-              .multiple(true),
+            Arg::with_name("repo")
+              .help("URL to remote repo")
+              .required(true),
           ),
       )
       .get_matches()
@@ -115,16 +118,29 @@ impl<'a> Cli<'a> {
 }
 
 impl Cli<'_> {
-  pub fn create(&self) {
-    // new subcommand.
-    if let Some(ref matches) = self.matches.subcommand_matches("new") {
-      // `lotlinx new` was run
-      if matches.is_present("path") {
-        // `lotlinx new -l` was run
-        println!("Print list of template engine available");
-      } else {
-        //
+  pub fn build(&self) {
+    // Process subcommands.
+    match self.matches.subcommand() {
+      // "new" subcommand.
+      ("new", Some(sub_new)) => {
+        // lotlinx new <project>
+      }
+      // "init" subcommand.
+      ("init", Some(sub_init)) => {
+        // lotlinx init
+      }
+      ("git", Some(sub_git)) => {
+        // lotlinx git <repo>
+      }
+      _ => {
+        eprintln!("Unrecognized command.");
       }
     }
+  }
+}
+
+impl<'a> Default for Cli<'_> {
+  fn default() -> Self {
+    Cli::new()
   }
 }

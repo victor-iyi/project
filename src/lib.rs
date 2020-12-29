@@ -1,7 +1,7 @@
-mod cli;
-mod error;
-mod template;
+pub use self::error::{Error, ErrorKind, Result};
+pub use render::Render;
 
-/// Lotlinx Result type.
-pub type Result<T> = std::result::Result<T, error::Error>;
-// pub type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
+pub mod cli;
+mod error;
+mod render;
+pub mod template;
