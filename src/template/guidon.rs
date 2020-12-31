@@ -245,7 +245,7 @@ impl<'a> Guidon<'a> {
   ) -> Result<()> {
     debug!("Parsing dir {}", dir.display().to_string());
     if !dir.is_dir() {
-      return Err(Error::new(ErrorKind::NotAFolder, "Not a directory"));
+      return Err(Error::new(ErrorKind::NotADirectory, "Not a directory"));
     }
 
     // for each entry…

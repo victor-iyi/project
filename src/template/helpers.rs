@@ -33,7 +33,6 @@ pub fn replace(
 /// ```properties
 /// {{up param}}
 /// ```
-
 pub fn up(
   h: &Helper<'_, '_>,
   _: &Handlebars<'_>,

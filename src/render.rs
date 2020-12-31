@@ -1,2 +1,1 @@
-
-pub struct Render {}
+pub trait Renderer {}

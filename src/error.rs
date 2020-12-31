@@ -9,7 +9,7 @@ pub enum ErrorKind {
   NotFound,
 
   /// Expected a folder/directory.
-  NotAFolder,
+  NotADirectory,
 
   /// I/O error.
   Io,

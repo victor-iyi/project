@@ -1,24 +1,3 @@
-/*use handlebars::Handlebars;
-use std::collections::BTreeMap;
-
-fn main() {
-  // create the handlebars registry
-  let mut handlebars = Handlebars::new();
-
-  // register the template. The template string will be verified and compiled.
-  let source = "hello {{world}}";
-  assert!(handlebars.register_template_string("t1", source).is_ok());
-
-  // Prepare some data.
-  //
-  // The data type should implements `serde::Serialize`
-  let mut data = BTreeMap::new();
-  data.insert("world".to_string(), "世界!".to_string());
-  assert_eq!(handlebars.render("t1", &data).unwrap(), "hello 世界!");
-  println!("{:?}", data);
-  println!("{:?}", handlebars.render("t1", &data).unwrap());
-}
-*/
 /*
 use lotlinx::template::guidon::Guidon;
 use std::collections::BTreeMap;
@@ -39,10 +18,20 @@ fn main() {
   guidon.apply_template("/Users/victor/dev/pricing").unwrap();
 }
 */
-
+/*
 use lotlinx::cli::Cli;
 
 fn main() {
-  let c = Cli::new();
-  c.build();
+  let c = Cli::default();
+  c.build_default();
+}
+*/
+use std::fs;
+use walkdir::WalkDir;
+
+fn main() {
+  let walker = WalkDir::new("/Users/victor/dev/template/template").into_iter();
+  for entry in walker.filter_map(|e| e.ok()) {
+    println!("{}", entry.path().display());
+  }
 }

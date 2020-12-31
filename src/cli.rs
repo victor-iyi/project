@@ -42,24 +42,35 @@
 use clap::{App, AppSettings, Arg};
 
 /// Lotlinx command line utilities.
-#[derive(Debug)]
 pub struct Cli<'a> {
   #[doc(hidden)]
   pub matches: clap::ArgMatches<'a>,
 }
 
 impl<'a> Cli<'a> {
+  /// Create an empty Cli. If you want Cli with default arguments,
+  /// consider using `Cli::default()`.
   pub fn new() -> Cli<'a> {
     Cli {
-      matches: Cli::get_matches(),
+      matches: App::new(clap::crate_name!())
+        .version(clap::crate_version!())
+        .about(clap::crate_description!())
+        .author(clap::crate_authors!())
+        .get_matches(),
     }
   }
 
-  pub fn get_matches() -> clap::ArgMatches<'a> {
-    App::new("lotlinx")
+  /// Create new Cli instance from `clap::ArgMaches<'a>` instance.
+  pub fn from_matches(matches: clap::ArgMatches<'a>) -> Cli {
+    Cli { matches }
+  }
+
+  /// Creates default `clap::ArgMaches` and builts it in `Cli::build_default()`.
+  pub fn default_args() -> clap::ArgMatches<'a> {
+    App::new(clap::crate_name!())
       .version(clap::crate_version!())
+      .about(clap::crate_description!())
       .author(clap::crate_authors!())
-      .about("Project template generator")
       // Create a new lotlinx project
       .subcommand(
         App::new("new")
@@ -69,78 +80,128 @@ impl<'a> Cli<'a> {
               .help("Name of the project.")
               .required(true),
           )
-          .arg(
+          .args(&[
+            // Flags: [must have `.short()` or `.long()`]
+            // Options: [must have either `.short()` or `.long()` & `takes_value(true)]
             Arg::with_name("engine")
               .short("e")
               .long("engine")
               .help("Template engnine to be used.")
               .takes_value(true)
+              .default_value("tf")
               .possible_values(&["tf", "keras"]),
-          )
-          .arg(
             Arg::with_name("runtime")
               .short("r")
               .long("runtime")
               .help("GCS runtime version.")
               .default_value("2.1")
               .takes_value(true),
-          ),
-      )
-      .subcommand(
-        App::new("init")
-          .about("Initialize new project from current dir.")
-          .setting(AppSettings::SubcommandRequiredElseHelp)
-          .subcommand(
-            App::new("remote") // Subcommands can have their own subcommands,
-              // which in turn have their own subcommands
-              .about("pushes remote things")
-              .arg(
-                Arg::with_name("repo")
-                  .required(true)
-                  .help("The remote repo to push things to"),
-              ),
-          )
-          .subcommand(App::new("local").about("pushes local things")),
+            Arg::with_name("py_version")
+              .long("py_version")
+              .help("Python version.")
+              .default_value("3.7")
+              .takes_value(true),
+            Arg::with_name("bucket")
+              .short("b")
+              .long("bucket")
+              .help("GCS bucket")
+              .takes_value(true)
+              .default_value("lotlinxdata"),
+          ]),
       )
       .subcommand(
         App::new("git")
-          .about("Initalize project from a GitHub")
-          .version("v2.0 (I'm versioned differently") // or different version from their parents
-          .setting(AppSettings::ArgRequiredElseHelp) // They can even have different settings
+          .about("Initalize project from a GitHub template")
+          .setting(AppSettings::ArgRequiredElseHelp)
           .arg(
             Arg::with_name("repo")
               .help("URL to remote repo")
               .required(true),
           ),
       )
+      .subcommand(
+        App::new("init")
+          .about("Initialize new project from current dir.")
+          .setting(AppSettings::SubcommandRequiredElseHelp)
+          .arg(
+            Arg::with_name("repo")
+              .required(true)
+              .help("The remote repo to push things to"),
+          )
+          .arg(
+            Arg::with_name("branch")
+              .short("b")
+              .long("branch")
+              .help("Branch name to checkout.")
+              .takes_value(true)
+              .default_value("master"),
+          ),
+      )
       .get_matches()
   }
 }
 
-impl Cli<'_> {
-  pub fn build(&self) {
+impl<'a> Cli<'a> {
+  /// Modifies the `matches` field of `Cli`.
+  pub fn set_matches(mut self, matches: clap::ArgMatches<'a>) -> Cli<'a> {
+    self.matches = matches;
+    self
+  }
+
+  /// Builds the default argument created in `Cli::default_args()` and retrives the values.
+  pub fn build_default(&self) {
     // Process subcommands.
     match self.matches.subcommand() {
       // "new" subcommand.
       ("new", Some(sub_new)) => {
         // lotlinx new <project>
+        if let Some(project) = sub_new.value_of("project") {
+          println!("Project name: {}", project);
+        }
+        // lotlinx new <project> --engine tf
+        if let Some(engine) = sub_new.value_of("engine") {
+          println!("Template engine: {}", engine);
+        }
+        // lotlinx new <project> --runtime 2.1
+        if let Some(runtime) = sub_new.value_of("runtime") {
+          println!("GCS runtime: {}", runtime);
+        }
+        // lotlinx new <project> --py_version 3.7
+        if let Some(py_version) = sub_new.value_of("py_version") {
+          println!("Python version: {}", py_version);
+        }
+        // lotlinx new <project> --bucket lotlinxdata
+        if let Some(bucket) = sub_new.value_of("bucket") {
+          println!("GCS bucket: {}", bucket);
+        }
       }
-      // "init" subcommand.
-      ("init", Some(sub_init)) => {
-        // lotlinx init
-      }
+      // "git" subcommand.
       ("git", Some(sub_git)) => {
         // lotlinx git <repo>
+        if let Some(repo) = sub_git.value_of("repo") {
+          println!("Git repo: {}", repo);
+        }
+        // lotlinx git <repo> --branch develop
+        if let Some(branch) = sub_git.value_of("branch") {
+          println!("Branch selected: {}", branch);
+        }
+      }
+      // "init" subcommand.
+      ("init", Some(_sub_init)) => {
+        // lotlinx init
       }
       _ => {
-        eprintln!("Unrecognized command.");
+        // Unrecognized command or above subcommands was not used.
+        eprintln!("Unrecognized command.\n{}", self.matches.usage());
       }
     }
   }
 }
 
-impl<'a> Default for Cli<'_> {
+impl Default for Cli<'_> {
   fn default() -> Self {
-    Cli::new()
+    Self {
+      matches: Self::default_args(),
+    }
   }
 }
