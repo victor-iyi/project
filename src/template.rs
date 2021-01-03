@@ -93,7 +93,8 @@ impl<P: AsRef<Path>, D: Serialize> Template<P, D> {
     // Create destination directory.
     fs::create_dir_all(&self.dest_path.as_ref())?;
 
-    let hb = self.register_helpers(true);
+    let _hb = self.register_helpers(true);
+    println!("Data empty? {}", self.data.is_none());
 
     // Walk the source directory
     // If it's a directory, create the target directory.
@@ -108,9 +109,9 @@ impl<P: AsRef<Path>, D: Serialize> Template<P, D> {
       let dest_path = self.dest_path.as_ref().join(src_path);
       if src_path.is_file() {
         if src_path.ends_with("hbs") {
-          let src_template = fs::File::open(src_path)?;
+          let _src_template = fs::File::open(src_path)?;
         } else {
-          let mut out_file = fs::File::create(&dest_path)?;
+          let mut _out_file = fs::File::create(&dest_path)?;
           // hb.render_template_source_to_write(&mut , data, writer)
         }
       } else {

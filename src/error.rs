@@ -37,9 +37,9 @@ impl Error {
     }
   }
 
-  fn from_str(message: &str) -> Error {
-    Error::new(ErrorKind::Error, message)
-  }
+  // pub fn from_str(message: &str) -> Error {
+  //   Error::new(ErrorKind::Error, message)
+  // }
 }
 
 impl Error {

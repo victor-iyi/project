@@ -65,6 +65,14 @@ impl<'a> Cli<'a> {
     Cli { matches }
   }
 
+  // /// Creates a new Cli object from a yaml file.
+  // pub fn from_yaml(path: &str) -> Cli {
+  //   let yml = load_yaml!(path);
+  //   Cli {
+  //     matches: App::from_yaml(yml).get_matches()
+  //   }
+  // }
+
   /// Creates default `clap::ArgMaches` and builts it in `Cli::build_default()`.
   pub fn default_args() -> clap::ArgMatches<'a> {
     App::new(clap::crate_name!())

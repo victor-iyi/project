@@ -18,14 +18,15 @@ fn main() {
   guidon.apply_template("/Users/victor/dev/pricing").unwrap();
 }
 */
-/*
+
 use lotlinx::cli::Cli;
 
 fn main() {
   let c = Cli::default();
   c.build_default();
 }
-*/
+
+/*
 use std::fs;
 use walkdir::WalkDir;
 
@@ -35,3 +36,4 @@ fn main() {
     println!("{}", entry.path().display());
   }
 }
+*/
