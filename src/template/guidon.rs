@@ -55,7 +55,7 @@ impl<'a, P: 'a + AsRef<Path>> TryNew<P> for Guidon<'a> {
       });
       let tplt: Template = toml::from_str(&tplt_str)?;
       let mut guidon = Guidon::default();
-      guidon.path = path.as_ref().to_path_buf();
+      guidon.set_path(path.as_ref().to_path_buf());
       guidon.variables = tplt.variables;
       guidon
     } else {
@@ -63,16 +63,18 @@ impl<'a, P: 'a + AsRef<Path>> TryNew<P> for Guidon<'a> {
       let tplt_str = read_to_string(path.as_ref())?;
       let tplt: Template = toml::from_str(&tplt_str)?;
       let mut guidon = Guidon::default();
-      guidon.path = path
-        .as_ref()
-        .parent()
-        .ok_or_else(|| {
-          Error::new(
-            ErrorKind::Io,
-            &format!("Path not found: {}", path.as_ref().display()),
-          )
-        })?
-        .to_path_buf();
+      guidon.set_path(
+        path
+          .as_ref()
+          .parent()
+          .ok_or_else(|| {
+            Error::new(
+              ErrorKind::Io,
+              &format!("Path not found: {}", path.as_ref().display()),
+            )
+          })?
+          .to_path_buf(),
+      );
       guidon.variables = tplt.variables;
       guidon
     };
@@ -84,7 +86,7 @@ impl<'a> Guidon<'a> {
   /// Creates a new Guidon from a path
   pub fn new(path: PathBuf) -> Self {
     let mut g = Guidon::default();
-    g.path = path;
+    g.set_path(path);
     g
   }
 
@@ -138,6 +140,16 @@ impl<'a> Guidon<'a> {
     self.variables_callback = Some(Box::new(cb) as Box<VariablesCallback>);
   }
 
+  #[doc(hidden)]
+  pub fn set_path(&mut self, path: PathBuf) {
+    self.path = path;
+  }
+
+  #[doc(hidden)]
+  pub fn set_variables(&mut self, variables: BTreeMap<String, String>) {
+    self.variables = variables;
+  }
+
   /// Provides a callback to be called when a variables is not found in the configuration file.
   ///
   /// # Arguments
@@ -174,10 +186,7 @@ impl<'a> Guidon<'a> {
   ///
   /// # Arguments
   /// * `to_dir` : the directory where the templated file structure will be created.
-  pub fn apply_template<T>(&mut self, to_dir: T) -> Result<()>
-  where
-    T: AsRef<Path>,
-  {
+  pub fn apply_template(&mut self, to_dir: impl AsRef<Path>) -> Result<()> {
     info!("Applying template for {}", self.path.display().to_string());
 
     // 1 - Check substition values (callback)
@@ -365,7 +374,7 @@ mod tests {
 
     let tplt: Template = toml::from_str(toml_content).unwrap();
     let mut guidon = Guidon::default();
-    guidon.variables = tplt.variables;
+    guidon.set_variables(tplt.variables);
     guidon.use_template_dir(true);
     assert_eq!(guidon.render_callback.is_none(), true);
     assert_eq!(guidon.no_template_dir, false);
