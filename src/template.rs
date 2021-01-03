@@ -1,8 +1,7 @@
 use std::fs;
-use std::path::{Path, PathBuf};
-use std::str::FromStr;
+use std::path::Path;
 
-use handlebars::Handlebars;
+use handlebars::{Handlebars, HelperDef};
 use serde::Serialize;
 use walkdir::WalkDir;
 
@@ -13,61 +12,80 @@ pub mod git;
 pub mod guidon;
 mod helpers;
 
-/// Project template fields.
-#[derive(Serialize)]
-pub struct TemplateData {
-  /// Name of the project, project directory, python module, model name, etc.
-  name: String,
-  /// Path where project is created. It defaults to the current directory
-  /// and uses the Template's name.
-  path: PathBuf,
-  /// Project template engine to use. Defaults to `tf` [`tf`, `keras`].
-  engine: TemplateEngine,
-  /// Google Cloud Runtime version.
-  runtime: f32,
-  /// Python version.
-  py_version: f32,
-  /// GCS bucket name.
-  bucket: String,
-}
-
-/// Available template engines.
-#[derive(Serialize)]
-enum TemplateEngine {
-  Tf,
-  Keras,
-}
-
-impl FromStr for TemplateEngine {
-  type Err = &'static str;
-
-  fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
-    match s {
-      "tf" | "TF" => Ok(TemplateEngine::Tf),
-      "keras" | "Keras" | "KERAS" => Ok(TemplateEngine::Keras),
-      _ => Err("no match"),
-    }
-  }
-}
+/// Helper function
+///
+/// Note:
+/// - `&Helper`: current helper template information, contains name, params, hashes and nested template
+/// - `&Registry`: the global registry, you can find templates by name from registry
+/// - `&Context`: the whole data to render, in most case you can use data from `Helper`
+/// - `&mut RenderContext`: you can access data or modify variables (starts with @)/partials in render context, for example, @index of #each. See its document for detail.
+/// - `&mut dyn Output`: where you write output to
+///
+/// # Example
+///
+/// The following creates an upper case function helper.
+///
+/// ```ignore
+///
+/// use handlebars::{
+///   Context, Handlebars, Helper, HelperResult, Output, RenderContext,
+/// };
+///
+/// pub fn upper(
+///   h: &Helper<'_, '_>,
+///   _: &Handlebars<'_>,
+///   _: &Context,
+///   _rc: &mut RenderContext<'_, '_>,
+///   out: &mut dyn Output,
+/// ) -> HelperResult {
+///   // get parameter from helper or throw an error
+///   let param = h.param(0).and_then(|v| v.value().as_str()).unwrap_or("");
+///   out.write(param.to_uppercase().as_ref())?;
+///   Ok(())
+/// }
+/// ```
+///
+/// You can add it to template like so:
+///
+/// ```
+/// use lotlinx::Template;
+///
+/// let t = Template::new("path/to/src", "path/to/dest");
+/// t.re
+/// ```
+pub type HelperFn = dyn HelperDef + Send + Sync;
 
 pub struct Template<P: AsRef<Path>, D: Serialize> {
   /// Source path where `hbs` template exist.
-  src_path: P,
+  pub src_path: P,
 
   /// Path where template will be created.
-  dest_path: P,
+  pub dest_path: P,
 
   /// Data that will be written from `src_path` to `dest_path`.
-  data: Option<D>,
+  pub data: Option<D>,
+
+  /// Source paths to ignore. Will not be included in `dest_path`.
+  ignore: Option<Vec<P>>,
 }
 
 impl<P: AsRef<Path>, D: Serialize> Template<P, D> {
   /// Create a new `Template<T>` with `data` set to `None`.
-  pub fn new(src_path: P, dest_path: P) -> Template<P, D> {
+  pub fn new(src_path: P, dest_path: P) -> Self {
     Template {
       src_path,
       dest_path,
       data: None,
+      ignore: None,
+    }
+  }
+
+  pub fn with_data(src_path: P, dest_path: P, data: D) -> Self {
+    Template {
+      src_path,
+      dest_path,
+      data: Some(data),
+      ignore: None,
     }
   }
 }
@@ -89,11 +107,11 @@ impl<P: AsRef<Path>, D: Serialize> Template<P, D> {
         &format!("{} is a directory.", self.src_path.as_ref().display()),
       ));
     }
-
     // Create destination directory.
     fs::create_dir_all(&self.dest_path.as_ref())?;
 
-    let hb = self.register_helpers(true);
+    let _hb = self.register_helpers(true);
+    println!("Data empty? {}", self.data.is_none());
 
     // Walk the source directory
     // If it's a directory, create the target directory.
@@ -108,9 +126,9 @@ impl<P: AsRef<Path>, D: Serialize> Template<P, D> {
       let dest_path = self.dest_path.as_ref().join(src_path);
       if src_path.is_file() {
         if src_path.ends_with("hbs") {
-          let src_template = fs::File::open(src_path)?;
+          let _src_template = fs::File::open(src_path)?;
         } else {
-          let mut out_file = fs::File::create(&dest_path)?;
+          let mut _out_file = fs::File::create(&dest_path)?;
           // hb.render_template_source_to_write(&mut , data, writer)
         }
       } else {
@@ -118,6 +136,23 @@ impl<P: AsRef<Path>, D: Serialize> Template<P, D> {
       }
     }
     Ok(())
+  }
+
+  /// Ignore a single path.
+  pub fn ignore_path(&mut self, path: P) {
+    self.ignore.as_mut().unwrap().push(path);
+  }
+
+  /// Ignore multiple paths.
+  pub fn ignore_paths(&mut self, paths: &[P])
+  where
+    P: Clone,
+  {
+    if self.ignore.is_none() {
+      self.ignore = Some(paths.to_vec());
+    } else {
+      self.ignore.as_mut().unwrap().extend(paths.to_owned());
+    }
   }
 
   pub fn register_helpers(&self, strict_mode: bool) -> Handlebars {
@@ -130,6 +165,20 @@ impl<P: AsRef<Path>, D: Serialize> Template<P, D> {
     handlebars.register_helper("prepend", Box::new(helpers::prepend));
     handlebars.register_helper("up", Box::new(helpers::up));
     handlebars.register_helper("low", Box::new(helpers::low));
+
+    handlebars
+  }
+
+  pub fn register_helper_fn(
+    &self,
+    name: &str,
+    helper_fn: Box<HelperFn>,
+  ) -> Handlebars {
+    let mut handlebars = Handlebars::new();
+    handlebars.set_strict_mode(true);
+
+    // Register handlebars helpers.
+    handlebars.register_helper(name, helper_fn);
 
     handlebars
   }
