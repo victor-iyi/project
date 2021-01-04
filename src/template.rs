@@ -1,7 +1,6 @@
 use std::fs;
 use std::path::Path;
 
-use handlebars::{Handlebars, HelperDef};
 use serde::Serialize;
 use walkdir::WalkDir;
 
@@ -10,50 +9,7 @@ use crate::{Error, ErrorKind, Result};
 #[cfg(feature = "git")]
 pub mod git;
 pub mod guidon;
-mod helpers;
-
-/// Helper function
-///
-/// Note:
-/// - `&Helper`: current helper template information, contains name, params, hashes and nested template
-/// - `&Registry`: the global registry, you can find templates by name from registry
-/// - `&Context`: the whole data to render, in most case you can use data from `Helper`
-/// - `&mut RenderContext`: you can access data or modify variables (starts with @)/partials in render context, for example, @index of #each. See its document for detail.
-/// - `&mut dyn Output`: where you write output to
-///
-/// # Example
-///
-/// The following creates an upper case function helper.
-///
-/// ```ignore
-///
-/// use handlebars::{
-///   Context, Handlebars, Helper, HelperResult, Output, RenderContext,
-/// };
-///
-/// pub fn upper(
-///   h: &Helper<'_, '_>,
-///   _: &Handlebars<'_>,
-///   _: &Context,
-///   _rc: &mut RenderContext<'_, '_>,
-///   out: &mut dyn Output,
-/// ) -> HelperResult {
-///   // get parameter from helper or throw an error
-///   let param = h.param(0).and_then(|v| v.value().as_str()).unwrap_or("");
-///   out.write(param.to_uppercase().as_ref())?;
-///   Ok(())
-/// }
-/// ```
-///
-/// You can add it to template like so:
-///
-/// ```
-/// use lotlinx::Template;
-///
-/// let t = Template::new("path/to/src", "path/to/dest");
-/// t.re
-/// ```
-pub type HelperFn = dyn HelperDef + Send + Sync;
+pub(crate) mod helpers;
 
 pub struct Template<P: AsRef<Path>, D: Serialize> {
   /// Source path where `hbs` template exist.
@@ -110,9 +66,6 @@ impl<P: AsRef<Path>, D: Serialize> Template<P, D> {
     // Create destination directory.
     fs::create_dir_all(&self.dest_path.as_ref())?;
 
-    let _hb = self.register_helpers(true);
-    println!("Data empty? {}", self.data.is_none());
-
     // Walk the source directory
     // If it's a directory, create the target directory.
     // if it's a file:
@@ -139,11 +92,13 @@ impl<P: AsRef<Path>, D: Serialize> Template<P, D> {
   }
 
   /// Ignore a single path.
+  #[inline]
   pub fn ignore_path(&mut self, path: P) {
     self.ignore.as_mut().unwrap().push(path);
   }
 
   /// Ignore multiple paths.
+  #[inline]
   pub fn ignore_paths(&mut self, paths: &[P])
   where
     P: Clone,
@@ -153,33 +108,5 @@ impl<P: AsRef<Path>, D: Serialize> Template<P, D> {
     } else {
       self.ignore.as_mut().unwrap().extend(paths.to_owned());
     }
-  }
-
-  pub fn register_helpers(&self, strict_mode: bool) -> Handlebars {
-    let mut handlebars = Handlebars::new();
-    handlebars.set_strict_mode(strict_mode);
-
-    // Register handlebars helpers.
-    handlebars.register_helper("replace", Box::new(helpers::replace));
-    handlebars.register_helper("append", Box::new(helpers::append));
-    handlebars.register_helper("prepend", Box::new(helpers::prepend));
-    handlebars.register_helper("up", Box::new(helpers::up));
-    handlebars.register_helper("low", Box::new(helpers::low));
-
-    handlebars
-  }
-
-  pub fn register_helper_fn(
-    &self,
-    name: &str,
-    helper_fn: Box<HelperFn>,
-  ) -> Handlebars {
-    let mut handlebars = Handlebars::new();
-    handlebars.set_strict_mode(true);
-
-    // Register handlebars helpers.
-    handlebars.register_helper(name, helper_fn);
-
-    handlebars
   }
 }

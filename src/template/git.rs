@@ -109,9 +109,3 @@ impl<'a> TryNew<GitOptions> for Guidon<'a> {
     Guidon::try_new(dest)
   }
 }
-
-impl From<git2::Error> for Error {
-  fn from(err: git2::Error) -> Self {
-    Error::new(ErrorKind::GitError, &err.to_string())
-  }
-}

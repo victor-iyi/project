@@ -17,8 +17,11 @@ pub enum ErrorKind {
   /// Error returned fro `std::path` if the prefix was not found.
   StripPrefix,
 
-  /// Error related to git
+  /// Error related to git.
   GitError,
+
+  /// Error returned from parsing a url.
+  Url,
 
   /// Generic error kind.
   Error,
@@ -91,6 +94,18 @@ impl From<toml::de::Error> for Error {
 impl From<handlebars::TemplateRenderError> for Error {
   fn from(err: handlebars::TemplateRenderError) -> Self {
     Error::new(ErrorKind::StripPrefix, &err.to_string())
+  }
+}
+
+impl From<url::ParseError> for Error {
+  fn from(err: url::ParseError) -> Self {
+    Error::new(ErrorKind::Url, &err.to_string())
+  }
+}
+
+impl From<git2::Error> for Error {
+  fn from(err: git2::Error) -> Self {
+    Error::new(ErrorKind::GitError, &err.to_string())
   }
 }
 
