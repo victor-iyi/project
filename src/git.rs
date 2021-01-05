@@ -6,7 +6,8 @@ use url::Url;
 
 use std::path::{Path, PathBuf};
 
-pub(crate) struct GitOptions {
+#[derive(Debug)]
+pub struct GitOptions {
   /// Remote or local git URI.
   remote: Url,
   /// Git branch to select. Defaults to the `HEAD` branch.

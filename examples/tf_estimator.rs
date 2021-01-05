@@ -1,6 +1,6 @@
 use lotlinx::Cli;
 
 fn main() {
-  let cli = Cli::default();
-  cli.build_default();
+  let cli = Cli::new();
+  let _config = cli.get_config();
 }

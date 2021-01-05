@@ -1,4 +1,4 @@
-use crate::error::{Error, ErrorKind, Result};
+use crate::error::Result;
 use crate::template::guidon::{Guidon, TryNew};
 
 use derive_builder::Builder;
