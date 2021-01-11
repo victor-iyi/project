@@ -43,7 +43,7 @@ use crate::template::helpers;
 /// let t = Template::new("path/to/src", "path/to/dest");
 /// t.re
 /// ```
-pub type HelperFn = dyn HelperDef + Send + Sync;
+pub(crate) type HelperFn = dyn HelperDef + Send + Sync;
 
 /// Register builtin default Handlebar helpers.
 #[inline]
@@ -58,7 +58,7 @@ pub(crate) fn register_default_helpers(handlebars: &mut Handlebars) {
 
 /// Register a new handlebar helper function.
 #[inline]
-pub fn register_helper_fn(
+pub(crate) fn register_helper_fn(
   hbs: &mut Handlebars,
   name: &str,
   helper_fn: Box<HelperFn>,

@@ -10,5 +10,6 @@ pub mod template;
 
 #[cfg(feature = "cli")]
 pub use self::cli::Cli;
+pub use self::engine::Engine;
 pub use self::error::{Error, ErrorKind, Result};
 pub use self::template::Template;

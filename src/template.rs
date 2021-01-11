@@ -1,52 +1,53 @@
 use std::fs;
 use std::path::Path;
 
-use serde::Serialize;
 use walkdir::WalkDir;
 
-use crate::{Error, ErrorKind, Result};
+use self::config::TemplateConfig;
+use crate::error::{Error, ErrorKind, Result};
 
+pub(crate) mod config;
 #[cfg(feature = "git")]
 pub mod git;
 pub mod guidon;
+#[cfg(feature = "hbs")]
 pub(crate) mod helpers;
 
-pub struct Template<P: AsRef<Path>, D: Serialize> {
-  /// Source path where `hbs` template exist.
+pub struct Template<P: AsRef<Path>> {
+  /// Base source path (could contain `template.toml`).
   pub src_path: P,
 
   /// Path where template will be created.
   pub dest_path: P,
 
-  /// Data that will be written from `src_path` to `dest_path`.
-  pub data: Option<D>,
-
   /// Source paths to ignore. Will not be included in `dest_path`.
-  ignore: Option<Vec<P>>,
+  pub config: TemplateConfig,
 }
 
-impl<P: AsRef<Path>, D: Serialize> Template<P, D> {
+impl<P: AsRef<Path>> Template<P> {
   /// Create a new `Template<T>` with `data` set to `None`.
   pub fn new(src_path: P, dest_path: P) -> Self {
     Template {
       src_path,
       dest_path,
-      data: None,
-      ignore: None,
+      config: TemplateConfig::default(),
     }
   }
 
-  pub fn with_data(src_path: P, dest_path: P, data: D) -> Self {
+  pub fn with_config(
+    src_path: P,
+    dest_path: P,
+    config: TemplateConfig,
+  ) -> Self {
     Template {
       src_path,
       dest_path,
-      data: Some(data),
-      ignore: None,
+      config,
     }
   }
 }
 
-impl<P: AsRef<Path>, D: Serialize> Template<P, D> {
+impl<P: AsRef<Path>> Template<P> {
   pub fn generate(&self) -> Result<()> {
     // Check if `src_path` is not a directory.
     if !self.src_path.as_ref().exists() {
@@ -63,6 +64,7 @@ impl<P: AsRef<Path>, D: Serialize> Template<P, D> {
         &format!("{} is a directory.", self.src_path.as_ref().display()),
       ));
     }
+
     // Create destination directory.
     fs::create_dir_all(&self.dest_path.as_ref())?;
 
@@ -89,24 +91,5 @@ impl<P: AsRef<Path>, D: Serialize> Template<P, D> {
       }
     }
     Ok(())
-  }
-
-  /// Ignore a single path.
-  #[inline]
-  pub fn ignore_path(&mut self, path: P) {
-    self.ignore.as_mut().unwrap().push(path);
-  }
-
-  /// Ignore multiple paths.
-  #[inline]
-  pub fn ignore_paths(&mut self, paths: &[P])
-  where
-    P: Clone,
-  {
-    if self.ignore.is_none() {
-      self.ignore = Some(paths.to_vec());
-    } else {
-      self.ignore.as_mut().unwrap().extend(paths.to_owned());
-    }
   }
 }

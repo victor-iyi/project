@@ -69,17 +69,8 @@ impl Default for PricingData {
 }
 
 fn main() {
-  // let template: Template<&str, PricingData> =
-  //   Template::new("/Users/victor/dev/template", "/Users/victor/dev/pricing");
-
-  // With Template.
-  let mut template = Template::with_data(
-    "/Users/victor/dev/template",
-    "/Users/victor/dev/pricing",
-    PricingData::default(),
-  );
-  template.ignore_paths(&["/Users/victor/dev/template/venv"]);
-
+  let template =
+    Template::new("/Users/victor/dev/template", "/Users/victor/dev/pricing");
   template
     .generate()
     .unwrap_or_else(|e| panic!("Problem generating template: {}", e));

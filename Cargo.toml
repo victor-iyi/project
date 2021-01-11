@@ -42,7 +42,7 @@ env_logger = "0.8"
 pretty_assertions = "0.6"
 
 [features]
-default = ["handlebars", "cli", "git"]
+default = ["hbs", "cli", "git"]
 # Use the liquid templating engine.
 liquid = []
 # Use the handlebars templating engine.
