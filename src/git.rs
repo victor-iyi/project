@@ -6,7 +6,7 @@ use url::Url;
 
 use std::path::{Path, PathBuf};
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct GitOptions {
   /// Remote or local git URI.
   remote: Url,

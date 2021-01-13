@@ -1,14 +1,15 @@
 use std::collections::HashMap;
-use std::fs;
 use std::path::Path;
 use std::str::FromStr;
 
 use serde::Deserialize;
 
-use crate::engine::Engine;
-use crate::error::{Error, ErrorKind, Result};
+use crate::error::{Error, Result};
+use crate::util;
+use crate::{engine::Engine, substitution};
 
-const TEMPLATE_FILE: &str = "template.toml";
+/// Default template file containing variable template substitution.
+pub const TEMPLATE_FILE: &str = "template.toml";
 
 #[derive(Deserialize)]
 pub struct TemplateConfig {
@@ -23,11 +24,34 @@ pub struct TemplateConfig {
 }
 
 impl TemplateConfig {
-  pub fn new() -> Self {
-    match Self::from_str(TEMPLATE_FILE) {
+  /// Create a new `TemplateConfig` from `config::TEMPLATE_FILE`.
+  pub fn new(path: &dyn AsRef<Path>) -> Self {
+    match Self::parse(&path.as_ref().join(TEMPLATE_FILE)) {
       Ok(config) => config,
       Err(_) => TemplateConfig::default(),
     }
+  }
+
+  /// Parse a given `template.toml` file as substitute all default variables.
+  ///
+  /// Return as a `Result<TemplateConfig>` for successful and parse failure.
+  pub(crate) fn parse(path: &dyn AsRef<Path>) -> Result<Self> {
+    // Parsed template string.
+    let parsed = substitution::parse_template_file(path, util::filename(path))?;
+
+    // Deserialize the `template.toml` file into `TemplateConfig`.
+    let mut config: TemplateConfig = toml::from_str(&parsed)?;
+
+    // Assert both `include` & `exclude` isn't both provided.
+    if config.include.is_some() && config.exclude.is_some() {
+      config.exclude = None;
+      eprintln!(
+        "One of `include` or `exclude` should be provided, but not both."
+      )
+    }
+
+    // Return the parsed configuration.
+    Ok(config)
   }
 }
 
@@ -35,32 +59,13 @@ impl FromStr for TemplateConfig {
   type Err = Error;
 
   fn from_str(s: &str) -> Result<Self> {
-    match fs::read_to_string(s) {
-      Ok(contents) => {
-        let mut config: TemplateConfig = toml::from_str(&contents)?;
-        if config.include.is_some() && config.exclude.is_some() {
-          config.exclude = None;
-          eprintln!(
-            "One of `include` or `exclude` should be provided, but not both."
-          )
-        }
-        Ok(config)
-      }
-      Err(err) => match err.kind() {
-        std::io::ErrorKind::NotFound => {
-          Err(Error::new(ErrorKind::NotFound, "No template found."))
-        }
-        _ => panic!("{}", err),
-      },
-    }
+    Self::parse(&Path::new(s))
   }
 }
 
 impl From<&dyn AsRef<Path>> for TemplateConfig {
   fn from(path: &dyn AsRef<Path>) -> Self {
-    match Self::from_str(path.as_ref().to_str().unwrap_or_else(|| {
-      panic!("Could not convert {} to `str`", path.as_ref().display())
-    })) {
+    match Self::parse(path) {
       Ok(config) => config,
       Err(_) => TemplateConfig::default(),
     }

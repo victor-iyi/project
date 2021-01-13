@@ -28,6 +28,7 @@ path = "examples/tf_estimator.rs"
 [dependencies]
 serde = { version = "1.0", features = ["derive"] }
 cargo = "0.50"
+regex = "1.4"
 walkdir = "2.3"
 log = "0.4"
 toml = "0.5"

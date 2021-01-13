@@ -4,37 +4,58 @@
 // https://opensource.org/licenses/MIT
 //! Command line interface.
 //!
-//! An ASCII art depiction may help explain this better. Using a fictional version of git as the demo
-//! subject. Imagine the following are all subcommands of git (note, the author is aware these aren't
-//! actually all subcommands in the real git interface, but it makes explanation easier)
+//! An ASCII art depiction may help explain this better.
 //!
-//!            Top Level App (lotlinx)                         TOP
-//!                           |
-//!       ----------------------------------------
-//!      /            |                \          \
-//!    new          git              init       commit     LEVEL 1
-//!     |           / \            /    \       |
-//!  project  remote   remote    ref    name   message     LEVEL 2
-//!           /                  /\
-//!        path            remote  local                   LEVEL 3
+//! ```txt
+//!                       Top Level App (lotlinx)                 TOP (binary name)
+//!                               |
+//!            --------------------------------------------
+//!          /       |            |       |       \        \
+//!      init       new          git     help --verbose --quiet   LEVEL 1 (subcommands)
+//!       |        /  \         /   \
+//!     repo  template name  remote name                          LEVEL 2 (args)
+//!       |                    |
+//! --branch               --branch                               LEVEL 3 (flags)
+//!```
 //!
+//! # Usage
 //!
-//! $ lotlinx new <project>
-//! $ lotlinx new <project>
-//! $ lotlinx add ref local
-//! $ lotlinx commit message
+//! Subcommands
 //!
-//! Notice only one command per "level" may be used. You could not, for example, do:
+//!```sh
+//! $ lotlinx init <repo>
+//! $ lotlinx new <template> <name>
+//! $ lotlinx git <remote> <name> --branch master
+//!```
 //!
-//! $ lotlinx new project push origin path
+//! `--branch`, like any other flags has a short form `-b`.
 //!
-use crate::git::GitOptions;
+//! Help messages for any subcommands.
+//!
+//! ```sh.
+//! $ lotlinx --help
+//! $ lotlinx help new
+//! ```
+//!
+//! Notice you can add `--verbose` (`-V`) or `--quiet` (`-q`) on all levels.
+//!
+//! ```sh
+//! $ lotlinx new <template> <name> --verbose
+//!```
+//!
+//! You can also view more info: eg. version info
+//!
+//! ```sh
+//! $ lotlinx --version
+//! ```
+//!
+use crate::{git::GitOptions, util};
 
 use clap::{App, AppSettings, Arg};
 
-use std::path::PathBuf;
-use std::str::FromStr;
+use std::{path::PathBuf, str::FromStr};
 
+#[derive(Debug, Clone)]
 pub enum TemplateType {
   /// Use a template from Git.
   Git(GitOptions),
@@ -75,9 +96,13 @@ impl TemplateType {
   }
 }
 
+/// Command line argument configuration.
+#[derive(Debug, Clone)]
 pub struct Config {
-  /// Project name and project's directory.
+  /// Project name.
   pub name: String,
+  /// Project name and project's directory.
+  pub path: PathBuf,
   /// Template type. git template? local template?
   pub template_type: TemplateType,
   /// Run verbosely.
@@ -89,24 +114,37 @@ pub struct Config {
 impl Config {
   /// Creates a new configuration.
   pub fn new(
-    name: &str,
+    path: &str,
     local: Option<&str>,
     git: Option<&str>,
     verbose: bool,
     quiet: bool,
   ) -> Self {
     Config {
-      name: name.to_string(),
+      name: util::basename(path).into(),
+      path: PathBuf::from(path),
       template_type: TemplateType::new(local, git),
       verbose,
       quiet,
     }
   }
 
+  /// Create a new configuration with a given `TemplateType`.
+  pub fn with_template_type(path: &str, template_type: TemplateType) -> Self {
+    Config {
+      name: util::basename(path).into(),
+      path: PathBuf::from(path),
+      template_type,
+      verbose: false,
+      quiet: false,
+    }
+  }
+
   /// Creates an empty configuration with default/zero-values.
   pub fn empty() -> Self {
     Config {
-      name: "".to_string(),
+      name: String::new(),
+      path: PathBuf::new(),
       template_type: TemplateType::new_local(""),
       verbose: false,
       quiet: false,
@@ -218,7 +256,7 @@ impl<'a> Cli<'a> {
         // Flags: [must have `.short()` or `.long()`]
         // Options: [must have either `.short()` or `.long()` & `takes_value(true)]
         Arg::with_name("verbose")
-          .short("v")
+          .short("V")
           .long("verbose")
           .help("Run verbosely."),
         Arg::with_name("quiet")
@@ -242,7 +280,8 @@ impl<'a> Cli<'a> {
 
         // lotlinx new <local> <name>
         if let Some(name) = sub_new.value_of("name") {
-          self.config.name = name.to_string();
+          self.config.name = util::basename(name).into();
+          self.config.path = PathBuf::from(name);
         }
       }
       // "git" subcommand.
@@ -255,7 +294,8 @@ impl<'a> Cli<'a> {
         }
         // lotlinx git <remote> <name>
         if let Some(name) = sub_git.value_of("name") {
-          self.config.name = name.to_string();
+          self.config.name = util::basename(name).into();
+          self.config.path = PathBuf::from(name);
         }
       }
       // "init" subcommand.

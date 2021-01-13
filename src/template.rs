@@ -1,10 +1,12 @@
-use std::fs;
-use std::path::Path;
+use self::config::TemplateConfig;
+use crate::{
+  cli::{Cli, Config},
+  error::{Error, ErrorKind, Result},
+};
 
 use walkdir::WalkDir;
 
-use self::config::TemplateConfig;
-use crate::error::{Error, ErrorKind, Result};
+use std::path::{Path, PathBuf};
 
 pub(crate) mod config;
 #[cfg(feature = "git")]
@@ -13,82 +15,83 @@ pub mod guidon;
 #[cfg(feature = "hbs")]
 pub(crate) mod helpers;
 
-pub struct Template<P: AsRef<Path>> {
-  /// Base source path (could contain `template.toml`).
-  pub src_path: P,
-
-  /// Path where template will be created.
-  pub dest_path: P,
-
-  /// Source paths to ignore. Will not be included in `dest_path`.
+/// Template information.
+pub struct Template {
+  /// Name of project.
+  pub name: String,
+  /// Template source path.
+  pub path: PathBuf,
+  /// Template configuration.
   pub config: TemplateConfig,
 }
 
-impl<P: AsRef<Path>> Template<P> {
-  /// Create a new `Template<T>` with `data` set to `None`.
-  pub fn new(src_path: P, dest_path: P) -> Self {
-    Template {
-      src_path,
-      dest_path,
-      config: TemplateConfig::default(),
-    }
-  }
-
-  pub fn with_config(
-    src_path: P,
-    dest_path: P,
+impl Template {
+  /// Create a new template instace.
+  fn new(
+    name: &str,
+    path: &dyn AsRef<Path>,
     config: TemplateConfig,
-  ) -> Self {
-    Template {
-      src_path,
-      dest_path,
+  ) -> Result<Template> {
+    // Template src path.
+    let path = path.as_ref().to_owned();
+
+    if !path.is_dir() {
+      return Err(Error::new(
+        ErrorKind::NotADirectory,
+        &format!("{} is not a project directory.", path.display()),
+      ));
+    }
+
+    Ok(Template {
+      name: name.to_string(),
+      path,
       config,
+    })
+  }
+}
+
+impl From<Config> for Template {
+  fn from(c: Config) -> Template {
+    match Self::new(&c.name, &c.path, TemplateConfig::new(&c.path)) {
+      Ok(template) => template,
+      Err(err) => panic!("{}", err),
     }
   }
 }
 
-impl<P: AsRef<Path>> Template<P> {
-  pub fn generate(&self) -> Result<()> {
-    // Check if `src_path` is not a directory.
-    if !self.src_path.as_ref().exists() {
-      return Err(Error::new(
-        ErrorKind::NotFound,
-        &format!("{} was not found.", self.src_path.as_ref().display()),
-      ));
+impl From<Cli<'_>> for Template {
+  fn from(c: Cli) -> Template {
+    match Self::new(
+      &c.config.name,
+      &c.config.path,
+      TemplateConfig::new(&c.config.path),
+    ) {
+      Ok(template) => template,
+      Err(err) => panic!("{}", err),
     }
+  }
+}
 
-    // Source path was not a directory.
-    if !self.src_path.as_ref().is_dir() {
-      return Err(Error::new(
-        ErrorKind::NotADirectory,
-        &format!("{} is a directory.", self.src_path.as_ref().display()),
-      ));
-    }
+impl Template {
+  pub fn generate(&self, dest: &dyn AsRef<Path>) -> Result<()> {
+    // Target destination where template will be created.
+    let target: PathBuf = dest.as_ref().to_owned();
 
-    // Create destination directory.
-    fs::create_dir_all(&self.dest_path.as_ref())?;
+    // Create destination folders.
+    std::fs::create_dir_all(dest.as_ref())?;
 
-    // Walk the source directory
-    // If it's a directory, create the target directory.
-    // if it's a file:
-    // check if it ends with hbs: call handlebars and write the processed file to target
-    // If no substitution, do a direct copy of file to dest path
-    let walker = WalkDir::new(self.src_path.as_ref()).into_iter();
-    for entry in walker.filter_map(|e| e.ok()) {
-      // let dest = self.
-      let src_path = entry.path();
-
-      let dest_path = self.dest_path.as_ref().join(src_path);
-      if src_path.is_file() {
-        if src_path.ends_with("hbs") {
-          let _src_template = fs::File::open(src_path)?;
-        } else {
-          let mut _out_file = fs::File::create(&dest_path)?;
-          // hb.render_template_source_to_write(&mut , data, writer)
-        }
+    // Walk the path and copy src path over to dest path.
+    for entry in WalkDir::new(&self.path).into_iter().filter_map(|e| e.ok()) {
+      if entry.path().is_dir() {
+        std::fs::create_dir_all(entry.path())?;
+        continue;
+      } else if entry.path().is_file() {
+        // Open the file.
+        std::fs::copy(entry.path(), &target)?;
       } else {
-        println!("Neither a file nor a directory.");
+        eprintln!("Do not know what's happening here...");
       }
+      println!("{}", &entry.path().display());
     }
     Ok(())
   }

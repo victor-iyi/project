@@ -23,6 +23,15 @@ pub enum ErrorKind {
   /// Error returned from parsing a url.
   Url,
 
+  /// Templating engine.
+  TemplatingEngine,
+
+  /// Regular expression error.
+  RegEx,
+
+  /// Renderer error.
+  Renderer,
+
   /// Generic error kind.
   Error,
 }
@@ -106,6 +115,12 @@ impl From<url::ParseError> for Error {
 impl From<git2::Error> for Error {
   fn from(err: git2::Error) -> Self {
     Error::new(ErrorKind::GitError, &err.to_string())
+  }
+}
+
+impl From<regex::Error> for Error {
+  fn from(err: regex::Error) -> Self {
+    Error::new(ErrorKind::RegEx, &err.to_string())
   }
 }
 

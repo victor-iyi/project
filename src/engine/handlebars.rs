@@ -15,7 +15,7 @@ use crate::template::helpers;
 ///
 /// The following creates an upper case function helper.
 ///
-/// ```ignore
+/// ```rust, ignore
 ///
 /// use handlebars::{
 ///   Context, Handlebars, Helper, HelperResult, Output, RenderContext,
@@ -37,7 +37,7 @@ use crate::template::helpers;
 ///
 /// You can add it to template like so:
 ///
-/// ```
+/// ```rust, ignore
 /// use lotlinx::Template;
 ///
 /// let t = Template::new("path/to/src", "path/to/dest");
