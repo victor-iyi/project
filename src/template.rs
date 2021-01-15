@@ -61,14 +61,7 @@ impl From<Config> for Template {
 
 impl From<Cli<'_>> for Template {
   fn from(c: Cli) -> Template {
-    match Self::new(
-      &c.config.name,
-      &c.config.path,
-      TemplateConfig::new(&c.config.path),
-    ) {
-      Ok(template) => template,
-      Err(err) => panic!("{}", err),
-    }
+    Self::from(c.config)
   }
 }
 
