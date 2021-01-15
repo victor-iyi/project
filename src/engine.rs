@@ -7,7 +7,7 @@
 //! [liquid]: https://shopify.github.io/liquid/
 //!
 
-use std::path::Path;
+use serde::Deserialize;
 
 #[cfg(feature = "hbs")]
 mod handlebars;
@@ -15,7 +15,21 @@ mod handlebars;
 #[cfg(feature = "liquid")]
 mod liquid;
 
-/// Templating engine trait.
-pub trait Engine {
-  fn replace_all(project_dir: dyn AsRef<Path>);
+/// Available templating engine.
+#[derive(Deserialize)]
+pub enum Engine {
+  /// Handlebars with file extension: "hbs".
+  Handlebars(String),
+  /// Liquid templating engine with file extension: "liquid".
+  Liquid(String),
+}
+
+impl Default for Engine {
+  fn default() -> Engine {
+    Engine::Handlebars(String::from("hbs"))
+  }
+}
+
+trait TemplateEngine {
+
 }

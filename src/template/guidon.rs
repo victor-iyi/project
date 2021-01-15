@@ -122,7 +122,7 @@ impl<'a> Guidon<'a> {
   /// a `BTreeMap<String, String>`.
   ///
   /// # Example
-  /// ```rust, no_run
+  /// ```rust, ignore
   ///   use guidon::Guidon;
   ///   use std::collections::BTreeMap;
   ///   use std::path::PathBuf;
@@ -157,7 +157,7 @@ impl<'a> Guidon<'a> {
   /// the value to use as a `String`.
   ///
   /// # Example
-  /// ```rust, no_run
+  /// ```rust, ignore
   ///   use guidon::Guidon;
   ///   use std::collections::BTreeMap;
   ///   use std::path::PathBuf;
