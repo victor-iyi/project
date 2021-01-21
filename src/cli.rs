@@ -7,7 +7,7 @@
 //! An ASCII art depiction may help explain this better.
 //!
 //! ```txt
-//!                       Top Level App (lotlinx)                 TOP (binary name)
+//!                       Top Level App (project)                 TOP (binary name)
 //!                               |
 //!            --------------------------------------------
 //!          /       |            |       |       \        \
@@ -23,9 +23,9 @@
 //! Subcommands
 //!
 //!```sh
-//! $ lotlinx init <repo>
-//! $ lotlinx new <template> <name>
-//! $ lotlinx git <remote> <name> --branch master
+//! $ project init <repo>
+//! $ project new <template> <name>
+//! $ project git <remote> <name> --branch master
 //!```
 //!
 //! `--branch`, like any other flags has a short form `-b`.
@@ -33,27 +33,27 @@
 //! Help messages for any subcommands.
 //!
 //! ```sh.
-//! $ lotlinx --help
-//! $ lotlinx help new
+//! $ project --help
+//! $ project help new
 //! ```
 //!
 //! Notice you can add `--verbose` (`-V`) or `--quiet` (`-q`) on all levels.
 //!
 //! ```sh
-//! $ lotlinx new <template> <name> --verbose
+//! $ project new <template> <name> --verbose
 //!```
 //!
 //! You can also view more info: eg. version info
 //!
 //! ```sh
-//! $ lotlinx --version
+//! $ project --version
 //! ```
 //!
-use crate::{git::GitOptions, util};
+use crate::{git::GitOptions, info::ProjectInfo, util};
 
 use clap::{App, AppSettings, Arg};
 
-use std::{path::PathBuf, str::FromStr};
+use std::{env, path::PathBuf, str::FromStr};
 
 #[derive(Debug, Clone)]
 pub enum TemplateType {
@@ -82,9 +82,10 @@ impl TemplateType {
       None => None,
     };
 
-    TemplateType::Git(
-      GitOptions::new(git, branch).unwrap_or_else(|err| panic!("{}", err)),
-    )
+    // TemplateType::Git(
+    //   GitOptions::new(git, branch).unwrap_or_else(|err| panic!("{}", err)),
+    // )
+    TemplateType::Local(PathBuf::new())
   }
 
   /// Initlizes a new local template path.
@@ -105,6 +106,8 @@ pub struct Config {
   pub path: PathBuf,
   /// Template type. git template? local template?
   pub template_type: TemplateType,
+  // /// Target Project info.
+  // target: ProjectInfo,
   /// Run verbosely.
   pub verbose: bool,
   /// Supress all output.
@@ -152,7 +155,7 @@ impl Config {
   }
 }
 
-/// Lotlinx command line utilities.
+/// Project command line utilities.
 pub struct Cli<'a> {
   /// Cli's configuration.
   pub config: Config,
@@ -200,9 +203,9 @@ impl<'a> Cli<'a> {
       .version(clap::crate_version!())
       .about(clap::crate_description!())
       .author(clap::crate_authors!())
-      // Create a new lotlinx project
+      // Create a new project project
       .subcommand(
-        // $ lotlinx new <template-path> <project-name>
+        // $ project new <template-path> <project-name>
         App::new("new")
           .about("Creates a new project from a local template.")
           .args(&[
@@ -212,21 +215,23 @@ impl<'a> Cli<'a> {
               .index(1).required(true),
             Arg::with_name("name")
               .help("Name of the project / directory name.")
-              .required(true),
+              .index(2).allow_hyphen_values(true),
           ])
       )
       .subcommand(
-        // lotlinx git <repo> <project-name> --branch develop
+        // project git <repo> <project-name> --branch develop
         App::new("git")
           .about("Initalize project from a GitHub template")
           .setting(AppSettings::ArgRequiredElseHelp)
           .args(&[
             Arg::with_name("remote")
               .help("URL to remote repo or `owner/repo` for short.")
+              .index(1)
               .required(true),
             Arg::with_name("name")
               .help("Name of the project / directory name.")
-              .required(true)
+              .index(2)
+              .takes_value(true)
           ]).args(&[
             Arg::with_name("branch")
               .long("branch").short("b")
@@ -235,7 +240,7 @@ impl<'a> Cli<'a> {
           ])
       )
       .subcommand(
-        // $ lotlinx init <repo/local>
+        // $ project init <repo/local>
         App::new("init")
           .about("Initialize new project from current dir.")
           .setting(AppSettings::SubcommandRequiredElseHelp)
@@ -273,12 +278,12 @@ impl<'a> Cli<'a> {
     match self.matches.subcommand() {
       // "new" subcommand.
       ("new", Some(sub_new)) => {
-        // lotlinx new <local> <name>
+        // project new <local> <name>
         if let Some(local) = sub_new.value_of("template") {
           self.config.template_type = TemplateType::new_local(local);
         }
 
-        // lotlinx new <local> <name>
+        // project new <local> <name>
         if let Some(name) = sub_new.value_of("name") {
           self.config.name = util::basename(name).into();
           self.config.path = PathBuf::from(name);
@@ -286,13 +291,13 @@ impl<'a> Cli<'a> {
       }
       // "git" subcommand.
       ("git", Some(sub_git)) => {
-        // lotlinx git <remote> <name>
+        // project git <remote> <name>
         if let Some(remote) = sub_git.value_of("remote") {
           // Set the remote with the branch (if given).
           self.config.template_type =
             TemplateType::new_git(remote, sub_git.value_of("branch"));
         }
-        // lotlinx git <remote> <name>
+        // project git <remote> <name>
         if let Some(name) = sub_git.value_of("name") {
           self.config.name = util::basename(name).into();
           self.config.path = PathBuf::from(name);
@@ -300,7 +305,7 @@ impl<'a> Cli<'a> {
       }
       // "init" subcommand.
       ("init", Some(_sub_init)) => {
-        // lotlinx init
+        // project init
       }
       _ => {
         // Unrecognized command or above subcommands was not used.

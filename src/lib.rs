@@ -5,6 +5,7 @@ pub mod engine;
 mod error;
 #[cfg(feature = "git")]
 pub mod git;
+mod info;
 mod render;
 mod substitution;
 pub mod template;

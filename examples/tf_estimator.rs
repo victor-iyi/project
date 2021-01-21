@@ -1,4 +1,4 @@
-use lotlinx::Cli;
+use project::Cli;
 
 fn main() {
   let cli = Cli::new();

@@ -5,9 +5,9 @@
  https://opensource.org/licenses/MIT
 -->
 
-# Lotlinx
+# Project
 
-> Lotlinx command line utility to create new project template.
+> Command line utility to create new project template.
 
 
 ## Contribution
@@ -16,8 +16,8 @@ You are very welcome to modify and use them in your own projects.
 
 Please keep a link to the [original repository]. If you have made a fork with substantial modifications that you feel may be useful, then please [open a new issue on GitHub][issues] with a link and short description.
 
-[original repository]: https://github.com/victor-iyi/lotlinx
-[issues]: https://github.com/victor-iyi/lotlinx/issues
+[original repository]: https://github.com/victor-iyi/project
+[issues]: https://github.com/victor-iyi/project/issues
 
 ## License (Apache)
 

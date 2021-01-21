@@ -3,7 +3,7 @@ use std::{fmt, io, str::FromStr};
 /// Lotlinx Result type.
 pub type Result<T, E = Error> = std::result::Result<T, E>;
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum ErrorKind {
   /// Cannot find a file or directory.
   NotFound,
@@ -100,6 +100,7 @@ impl From<toml::de::Error> for Error {
   }
 }
 
+#[cfg(feature = "hbs")]
 impl From<handlebars::TemplateRenderError> for Error {
   fn from(err: handlebars::TemplateRenderError) -> Self {
     Error::new(ErrorKind::StripPrefix, &err.to_string())

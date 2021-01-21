@@ -10,7 +10,9 @@ use std::path::{Path, PathBuf};
 
 pub(crate) mod config;
 #[cfg(feature = "git")]
+#[cfg(feature = "hbs")]
 pub mod git;
+#[cfg(feature = "hbs")]
 pub mod guidon;
 #[cfg(feature = "hbs")]
 pub(crate) mod helpers;
