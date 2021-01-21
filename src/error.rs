@@ -1,9 +1,9 @@
 use std::{fmt, io, str::FromStr};
 
 /// Lotlinx Result type.
-pub type Result<T> = std::result::Result<T, Error>;
+pub type Result<T, E = Error> = std::result::Result<T, E>;
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum ErrorKind {
   /// Cannot find a file or directory.
   NotFound,
@@ -17,8 +17,20 @@ pub enum ErrorKind {
   /// Error returned fro `std::path` if the prefix was not found.
   StripPrefix,
 
-  /// Error related to git
+  /// Error related to git.
   GitError,
+
+  /// Error returned from parsing a url.
+  Url,
+
+  /// Templating engine.
+  TemplatingEngine,
+
+  /// Regular expression error.
+  RegEx,
+
+  /// Renderer error.
+  Renderer,
 
   /// Generic error kind.
   Error,
@@ -37,9 +49,9 @@ impl Error {
     }
   }
 
-  fn from_str(message: &str) -> Error {
-    Error::new(ErrorKind::Error, message)
-  }
+  // pub fn from_str(message: &str) -> Error {
+  //   Error::new(ErrorKind::Error, message)
+  // }
 }
 
 impl Error {
@@ -88,9 +100,28 @@ impl From<toml::de::Error> for Error {
   }
 }
 
+#[cfg(feature = "hbs")]
 impl From<handlebars::TemplateRenderError> for Error {
   fn from(err: handlebars::TemplateRenderError) -> Self {
     Error::new(ErrorKind::StripPrefix, &err.to_string())
+  }
+}
+
+impl From<url::ParseError> for Error {
+  fn from(err: url::ParseError) -> Self {
+    Error::new(ErrorKind::Url, &err.to_string())
+  }
+}
+
+impl From<git2::Error> for Error {
+  fn from(err: git2::Error) -> Self {
+    Error::new(ErrorKind::GitError, &err.to_string())
+  }
+}
+
+impl From<regex::Error> for Error {
+  fn from(err: regex::Error) -> Self {
+    Error::new(ErrorKind::RegEx, &err.to_string())
   }
 }
 

@@ -1,4 +1,4 @@
-use crate::error::{Error, ErrorKind, Result};
+use crate::error::Result;
 use crate::template::guidon::{Guidon, TryNew};
 
 use derive_builder::Builder;
@@ -107,11 +107,5 @@ impl<'a> TryNew<GitOptions> for Guidon<'a> {
     repo.checkout_tree(&local, Some(&mut opts))?;
 
     Guidon::try_new(dest)
-  }
-}
-
-impl From<git2::Error> for Error {
-  fn from(err: git2::Error) -> Self {
-    Error::new(ErrorKind::GitError, &err.to_string())
   }
 }
