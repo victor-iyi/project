@@ -49,106 +49,48 @@
 //! $ project --version
 //! ```
 //!
-use crate::{git::GitOptions, info::ProjectInfo, util};
+use crate::info::{ProjectInfo, TemplateOptions};
 
 use clap::{App, AppSettings, Arg};
 
-use std::{env, path::PathBuf, str::FromStr};
-
-#[derive(Debug, Clone)]
-pub enum TemplateType {
-  /// Use a template from Git.
-  Git(GitOptions),
-  /// Use a local template.
-  Local(PathBuf),
-}
-
-impl TemplateType {
-  /// Initlize either a local or a remote template (with default branch).
-  fn new(local: Option<&str>, git: Option<&str>) -> Self {
-    match local {
-      Some(_local) => Self::new_local(_local),
-      None => match git {
-        Some(repo) => Self::new_git(repo, None),
-        None => panic!("`git` or `local` must be specified."),
-      },
-    }
-  }
-
-  /// Initialize a new git template with default branch.
-  fn new_git(git: &str, branch: Option<&str>) -> Self {
-    let branch = match branch {
-      Some(b) => Some(b.to_string()),
-      None => None,
-    };
-
-    // TemplateType::Git(
-    //   GitOptions::new(git, branch).unwrap_or_else(|err| panic!("{}", err)),
-    // )
-    TemplateType::Local(PathBuf::new())
-  }
-
-  /// Initlizes a new local template path.
-  fn new_local(local: &str) -> Self {
-    TemplateType::Local(
-      PathBuf::from_str(local)
-        .unwrap_or_else(|err| panic!("Invalid local path: {}", err)),
-    )
-  }
-}
-
-/// Command line argument configuration.
-#[derive(Debug, Clone)]
-pub struct Config {
-  /// Project name.
-  pub name: String,
-  /// Project name and project's directory.
-  pub path: PathBuf,
-  /// Template type. git template? local template?
-  pub template_type: TemplateType,
-  // /// Target Project info.
-  // target: ProjectInfo,
-  /// Run verbosely.
+pub struct Arguments {
+  /// Project information.
+  pub project: ProjectInfo,
+  /// Template options.
+  pub template: TemplateOptions,
+  /// Verbosity level.
   pub verbose: bool,
-  /// Supress all output.
+  /// Supress output.
   pub quiet: bool,
 }
 
-impl Config {
-  /// Creates a new configuration.
-  pub fn new(
-    path: &str,
-    local: Option<&str>,
-    git: Option<&str>,
-    verbose: bool,
-    quiet: bool,
-  ) -> Self {
-    Config {
-      name: util::basename(path).into(),
-      path: PathBuf::from(path),
-      template_type: TemplateType::new(local, git),
-      verbose,
-      quiet,
-    }
-  }
-
-  /// Create a new configuration with a given `TemplateType`.
-  pub fn with_template_type(path: &str, template_type: TemplateType) -> Self {
-    Config {
-      name: util::basename(path).into(),
-      path: PathBuf::from(path),
-      template_type,
+impl Arguments {
+  pub fn new(name: &str, path: &str, branch: Option<&str>) -> Arguments {
+    Arguments {
+      project: ProjectInfo::from(name),
+      template: TemplateOptions::new(path, branch),
       verbose: false,
       quiet: false,
     }
   }
+}
 
-  /// Creates an empty configuration with default/zero-values.
-  pub fn empty() -> Self {
-    Config {
-      name: String::new(),
-      path: PathBuf::new(),
-      template_type: TemplateType::new_local(""),
+impl From<&str> for Arguments {
+  fn from(path: &str) -> Arguments {
+    Arguments {
+      project: ProjectInfo::default(),
+      template: TemplateOptions::new(path, None),
+      verbose: false,
+      quiet: false,
+    }
+  }
+}
+
+impl Default for Arguments {
+  fn default() -> Arguments {
+    Arguments {
+      project: ProjectInfo::default(),
+      template: TemplateOptions::default(),
       verbose: false,
       quiet: false,
     }
@@ -157,47 +99,42 @@ impl Config {
 
 /// Project command line utilities.
 pub struct Cli<'a> {
-  /// Cli's configuration.
-  pub config: Config,
+  /// Command line arguments.
+  pub args: Arguments,
   /// Command line argument matches.
   matches: clap::ArgMatches<'a>,
 }
 
 impl Default for Cli<'_> {
   fn default() -> Self {
-    Self {
+    let mut cli = Self {
+      args: Arguments::default(),
       matches: Self::default_args(),
-      config: Config::empty(),
-    }
+    };
+    cli.parse_args();
+    cli
   }
 }
 
 impl<'a> Cli<'a> {
   /// Creates default arguments with `Cli::default()`
-  /// then parses the default arguments with `build_config()`.
+  /// then parses the default arguments with `parse_args()`.
   pub fn new() -> Cli<'a> {
-    let mut cli = Self::default();
-    cli.build_config();
-    cli
+    Self::default()
   }
 
   /// Create new Cli instance from `clap::ArgMaches<'a>` instance.
   pub fn from_matches(matches: clap::ArgMatches<'a>) -> Self {
     Cli {
       matches,
-      config: Config::empty(),
+      args: Arguments::default(),
     }
-  }
-
-  /// Retrieve Cli's configuration.
-  pub fn get_config(&self) -> &Config {
-    &self.config
   }
 }
 
 // Priveate impl block.
 impl<'a> Cli<'a> {
-  /// Creates default `clap::ArgMaches` and builts it in `Cli::build_config()`.
+  /// Creates default `clap::ArgMaches` and builts it in `Cli::parse_args()`.
   fn default_args() -> clap::ArgMatches<'a> {
     App::new(clap::crate_name!())
       .version(clap::crate_version!())
@@ -273,47 +210,39 @@ impl<'a> Cli<'a> {
   }
 
   /// Builds the default argument created in `Cli::default_args()` and retrives the values.
-  fn build_config(&mut self) {
+  fn parse_args(&mut self) {
     // Process subcommands.
     match self.matches.subcommand() {
       // "new" subcommand.
       ("new", Some(sub_new)) => {
         // project new <local> <name>
-        if let Some(local) = sub_new.value_of("template") {
-          self.config.template_type = TemplateType::new_local(local);
-        }
-
-        // project new <local> <name>
-        if let Some(name) = sub_new.value_of("name") {
-          self.config.name = util::basename(name).into();
-          self.config.path = PathBuf::from(name);
-        }
+        let path = sub_new.value_of("template").unwrap();
+        let name = sub_new.value_of("name").unwrap();
+        self.args = Arguments::new(path, name, None);
       }
       // "git" subcommand.
       ("git", Some(sub_git)) => {
         // project git <remote> <name>
-        if let Some(remote) = sub_git.value_of("remote") {
-          // Set the remote with the branch (if given).
-          self.config.template_type =
-            TemplateType::new_git(remote, sub_git.value_of("branch"));
-        }
-        // project git <remote> <name>
-        if let Some(name) = sub_git.value_of("name") {
-          self.config.name = util::basename(name).into();
-          self.config.path = PathBuf::from(name);
-        }
+        let path = sub_git.value_of("remote").unwrap();
+        let name = sub_git.value_of("name").unwrap();
+        let branch = sub_git.value_of("branch");
+        self.args = Arguments::new(name, path, branch);
       }
       // "init" subcommand.
-      ("init", Some(_sub_init)) => {
-        // project init
+      ("init", Some(sub_init)) => {
+        // project init <repo>
+        let path = sub_init.value_of("repo").unwrap();
+        // TODO: Add `branch` to arguments.
+        self.args = Arguments::from(path)
       }
       _ => {
         // Unrecognized command or above subcommands was not used.
         eprintln!("Unrecognized command.\n{}", self.matches.usage());
+        std::process::exit(0);
       }
     };
 
-    self.config.verbose = self.matches.is_present("verbose");
-    self.config.quiet = self.matches.is_present("quiet");
+    self.args.verbose = self.matches.is_present("verbose");
+    self.args.quiet = self.matches.is_present("quiet");
   }
 }

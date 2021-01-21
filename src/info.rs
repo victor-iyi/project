@@ -1,8 +1,9 @@
 use crate::{
   error::{Error, Result},
+  git,
   git::GitOptions,
   template::config::TemplateConfig,
-  util::basename,
+  util,
 };
 
 use heck::{KebabCase, SnakeCase};
@@ -15,42 +16,42 @@ use std::{
 
 /// Information about the new project to be created.
 #[derive(Debug)]
-pub(crate) struct ProjectInfo {
+pub struct ProjectInfo {
   /// The project name, which is extracted from the project's base directory.
-  pub(crate) name: String,
+  pub name: String,
   /// Base directory of the target project.
-  pub(crate) path: PathBuf,
+  pub path: PathBuf,
 }
 
 impl ProjectInfo {
   /// Create a new project info: given project local path.
-  pub(crate) fn new(s: &dyn AsRef<Path>) -> Self {
+  pub fn new(s: &dyn AsRef<Path>) -> Self {
     Self::from(s)
   }
 }
 
 impl ProjectInfo {
   /// Get the raw project name.
-  pub(crate) fn raw(&self) -> String {
+  pub fn raw(&self) -> String {
     self.name.to_owned()
   }
 
   /// Get the project name in Kebab case.
-  pub(crate) fn name_kebab_case(&self) -> String {
+  pub fn name_kebab_case(&self) -> String {
     self.name.to_kebab_case()
   }
 
   /// Get the project name in snake case.
-  pub(crate) fn name_snake_case(&self) -> String {
+  pub fn name_snake_case(&self) -> String {
     self.name.to_snake_case()
   }
 
   /// Get owned project path.
-  pub(crate) fn path(&self) -> PathBuf {
+  pub fn path(&self) -> PathBuf {
     self.path.clone()
   }
 
-  pub(crate) fn path_kebab_case(&self) -> String {
+  pub fn path_kebab_case(&self) -> String {
     self.path.to_str().unwrap().to_kebab_case()
   }
 }
@@ -58,7 +59,7 @@ impl ProjectInfo {
 impl From<&str> for ProjectInfo {
   fn from(s: &str) -> Self {
     Self {
-      name: basename(s).into(),
+      name: util::basename(s).into(),
       path: PathBuf::from(s),
     }
   }
@@ -67,7 +68,7 @@ impl From<&str> for ProjectInfo {
 impl From<&dyn AsRef<Path>> for ProjectInfo {
   fn from(p: &dyn AsRef<Path>) -> Self {
     Self {
-      name: basename(p.as_ref().to_str().unwrap()).into(),
+      name: util::filename(p).into(),
       path: PathBuf::from(p.as_ref()),
     }
   }
@@ -75,16 +76,18 @@ impl From<&dyn AsRef<Path>> for ProjectInfo {
 
 impl Default for ProjectInfo {
   fn default() -> Self {
+    let curr_dir = env::current_dir().unwrap_or_default();
+
     Self {
-      name: "".to_string(),
-      path: env::current_dir().unwrap_or_default(),
+      name: util::filename(&curr_dir).into(),
+      path: curr_dir,
     }
   }
 }
 
 /// `TemplateOptions` describes the kind of template we are using,
 /// either a remote template or a local template.
-pub(crate) enum TemplateOptions {
+pub enum TemplateOptions {
   /// A local template with the path to the base template directory.
   Local(PathBuf),
 
@@ -103,11 +106,11 @@ impl TemplateOptions {
   /// full absolute path.
   ///
   /// `branch` represents the branch to checkout if it's a git repo.
-  pub(crate) fn new(path: &str, branch: Option<String>) -> TemplateOptions {
+  pub fn new(path: &str, branch: Option<&str>) -> TemplateOptions {
     // https://github.com/username/repo
     // username/repo
     // relative/path/to/template
-    match Self::parse_path(path, branch) {
+    match Self::parse_path(path, branch.map(|s| s.to_string())) {
       Ok(opts) => opts,
       Err(err) => panic!("Error: {}", err),
     }
@@ -157,7 +160,7 @@ impl Default for TemplateOptions {
 }
 
 /// Command line argument configuration.
-pub(crate) struct TemplateInfo {
+pub struct TemplateInfo {
   /// The kind of template to be used (local or remote).
   options: TemplateOptions,
 
@@ -166,19 +169,25 @@ pub(crate) struct TemplateInfo {
 }
 
 impl TemplateInfo {
-  pub(crate) fn new(path: &str, branch: Option<&str>) -> Self {
-    let opts = TemplateOptions::new(path, branch.map(|s| s.to_string()));
+  pub fn new(path: &str, branch: Option<&str>) -> Self {
+    Self::default()
+  }
+
+  fn load(path: &str, branch: Option<&str>) -> Result<()> {
+    let opts = TemplateOptions::new(path, branch);
     match opts {
       TemplateOptions::Local(path) => {
-        //
-        println!("{}", path.display());
+        // Check for a "template.toml" file.
+        println!("Using local template: {}", path.display());
       }
       TemplateOptions::Remote(git_opts) => {
+        // Download remote template.
         println!("Download repo to a temp file");
+        let branch = git::create(Path::new(""), git_opts);
       }
     }
 
-    Self::default()
+    Ok(())
   }
 }
 

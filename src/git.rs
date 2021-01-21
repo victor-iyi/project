@@ -1,16 +1,13 @@
-use crate::error::{Error, ErrorKind, Result};
+use crate::error::Result;
 
 use cargo::{
   core::GitReference, sources::git::GitRemote, util::config::Config,
   CargoResult,
 };
 use git2::{Repository as GitRepository, RepositoryInitOptions};
-use url::{ParseError, Url};
+use url::Url;
 
-use std::{
-  env, fs,
-  path::{Path, PathBuf},
-};
+use std::{env, fs, path::Path};
 
 #[derive(Debug, Clone)]
 pub struct GitOptions {
@@ -32,10 +29,7 @@ impl GitOptions {
 }
 
 /// Checksout a `GitRemote` into a temporary folder.
-pub(crate) fn create(
-  project_dir: &Path,
-  opts: GitOptions,
-) -> CargoResult<String> {
+pub fn create(project_dir: &Path, opts: GitOptions) -> CargoResult<String> {
   let dest = env::temp_dir().join(project_dir);
   let config = Config::default()?;
   let remote = GitRemote::new(&opts.remote);
@@ -103,7 +97,7 @@ pub fn init(project_dir: &Path, branch: &str) -> Result<GitRepository> {
 }
 
 /// Delete repo.
-pub(crate) fn delete_local_repo(project_dir: &Path) -> Result<()> {
+pub fn delete_local_repo(project_dir: &Path) -> Result<()> {
   fs::remove_dir_all(project_dir)
     .unwrap_or_else(|_| panic!("Error cleaning up git repo"));
 
