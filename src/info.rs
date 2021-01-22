@@ -1,7 +1,6 @@
 use crate::{
   error::{Error, Result},
-  git,
-  git::GitOptions,
+  git::{self, GitOptions},
   template::config::TemplateConfig,
   util,
 };
@@ -15,7 +14,7 @@ use std::{
 };
 
 /// Information about the new project to be created.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct ProjectInfo {
   /// The project name, which is extracted from the project's base directory.
   pub name: String,
@@ -76,7 +75,7 @@ impl From<&dyn AsRef<Path>> for ProjectInfo {
 
 impl Default for ProjectInfo {
   fn default() -> Self {
-    let curr_dir = env::current_dir().unwrap_or_default();
+    let curr_dir = env::current_dir().unwrap_or_else(|_e| ".".into());
 
     Self {
       name: util::filename(&curr_dir).into(),
@@ -87,6 +86,7 @@ impl Default for ProjectInfo {
 
 /// `TemplateOptions` describes the kind of template we are using,
 /// either a remote template or a local template.
+#[derive(Clone)]
 pub enum TemplateOptions {
   /// A local template with the path to the base template directory.
   Local(PathBuf),
@@ -159,34 +159,50 @@ impl Default for TemplateOptions {
   }
 }
 
-/// Command line argument configuration.
+/// Template & project comes together to load the template from remote or local
+/// path, loads the `"template.toml"` config file, and initializes git for the
+/// new project.
 pub struct TemplateInfo {
-  /// The kind of template to be used (local or remote).
-  options: TemplateOptions,
+  #[doc(hidden)]
+  template_options: TemplateOptions,
 
-  /// Template configuration file.
+  #[doc(hidden)]
   config: TemplateConfig,
+
+  #[doc(hidden)]
+  project_info: ProjectInfo,
 }
 
 impl TemplateInfo {
-  pub fn new(path: &str, branch: Option<&str>) -> Self {
-    Self::default()
+  pub fn new(
+    project_info: &ProjectInfo,
+    template_options: &TemplateOptions,
+  ) -> Self {
+    TemplateInfo {
+      template_options: template_options.clone(),
+      config: TemplateConfig::new(&project_info),
+      project_info: project_info.clone(),
+    }
   }
 
-  fn load(path: &str, branch: Option<&str>) -> Result<()> {
-    let opts = TemplateOptions::new(path, branch);
-    match opts {
-      TemplateOptions::Local(path) => {
-        // Check for a "template.toml" file.
-        println!("Using local template: {}", path.display());
+  pub fn load(&self) -> Result<()> {
+    match &self.template_options {
+      TemplateOptions::Local(local) => {
+        // TODO: Dunno what to do here...
+        println!("Using local template: {}", local.display());
       }
       TemplateOptions::Remote(git_opts) => {
-        // Download remote template.
+        // Download remote template into project dir.
         println!("Download repo to a temp file");
-        let branch = git::create(Path::new(""), git_opts);
+        match git::create(&self.project_info.path, git_opts) {
+          Ok(branch) => {
+            println!("Usint the `{}` branch", branch);
+            git::remove_history(&self.project_info.path)?;
+          }
+          Err(err) => panic!("Could not create template: {}", err),
+        }
       }
     }
-
     Ok(())
   }
 }
@@ -194,8 +210,9 @@ impl TemplateInfo {
 impl Default for TemplateInfo {
   fn default() -> TemplateInfo {
     TemplateInfo {
-      options: TemplateOptions::default(),
+      template_options: TemplateOptions::default(),
       config: TemplateConfig::default(),
+      project_info: ProjectInfo::default(),
     }
   }
 }

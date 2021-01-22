@@ -7,7 +7,6 @@ mod error;
 pub mod git;
 mod info;
 mod render;
-mod substitution;
 pub mod template;
 pub(crate) mod util;
 

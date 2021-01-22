@@ -5,9 +5,10 @@ use cargo::{
   CargoResult,
 };
 use git2::{Repository as GitRepository, RepositoryInitOptions};
+use tempfile::Builder;
 use url::Url;
 
-use std::{env, fs, path::Path};
+use std::{fs, path::Path};
 
 #[derive(Debug, Clone)]
 pub struct GitOptions {
@@ -29,15 +30,15 @@ impl GitOptions {
 }
 
 /// Checksout a `GitRemote` into a temporary folder.
-pub fn create(project_dir: &Path, opts: GitOptions) -> CargoResult<String> {
-  let dest = env::temp_dir().join(project_dir);
+pub fn create(project_dir: &Path, opts: &GitOptions) -> CargoResult<String> {
+  let temp = Builder::new().prefix(project_dir).tempdir()?;
   let config = Config::default()?;
   let remote = GitRemote::new(&opts.remote);
 
   // Checkout repo branch.
   let ((db, rev), branch_name) = match &opts.branch {
     GitReference::Branch(branch_name) => (
-      remote.checkout(&dest, None, &opts.branch, None, &config)?,
+      remote.checkout(&temp.path(), None, &opts.branch, None, &config)?,
       branch_name.clone(),
     ),
     GitReference::DefaultBranch => {
@@ -49,7 +50,7 @@ pub fn create(project_dir: &Path, opts: GitOptions) -> CargoResult<String> {
       // See issues:
       //  - https://github.com/rust-lang/cargo/issues/8364
       //  - https://github.com/rust-lang/cargo/issues/8468
-      let repo = GitRepository::init(&dest)?;
+      let repo = GitRepository::init(&temp.path())?;
       let mut git_remote = repo.remote_anonymous(remote.url().as_str())?;
       git_remote.connect(git2::Direction::Fetch)?;
       let default_branch = git_remote.default_branch()?;
@@ -59,7 +60,7 @@ pub fn create(project_dir: &Path, opts: GitOptions) -> CargoResult<String> {
         .replace("refs/heads/", "");
       (
         remote.checkout(
-          &dest,
+          &temp.path(),
           None,
           &GitReference::Branch(branch_name.clone()),
           None,

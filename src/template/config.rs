@@ -1,15 +1,14 @@
 use std::collections::HashMap;
 use std::path::Path;
-use std::str::FromStr;
 
 use serde::Deserialize;
 
-use crate::error::{Error, Result};
-use crate::util;
-use crate::{engine::Engine, substitution};
+use crate::{
+  engine::Engine, error::Result, info::ProjectInfo, template::parser,
+};
 
 /// Default template file containing variable template substitution.
-pub const TEMPLATE_FILE: &str = "template.toml";
+pub(crate) const TEMPLATE_FILE: &str = "template.toml";
 
 #[derive(Deserialize)]
 pub struct TemplateConfig {
@@ -24,20 +23,26 @@ pub struct TemplateConfig {
 }
 
 impl TemplateConfig {
-  /// Create a new `TemplateConfig` from `config::TEMPLATE_FILE`.
-  pub fn new(path: &dyn AsRef<Path>) -> Self {
-    match Self::parse(&path.as_ref().join(TEMPLATE_FILE)) {
+  /// Create & parse the `"template.toml"` file in the project base directory.
+  pub fn new(project_info: &ProjectInfo) -> TemplateConfig {
+    match Self::parse(&project_info.path, &project_info.name) {
       Ok(config) => config,
-      Err(_) => TemplateConfig::default(),
+      Err(err) => {
+        eprintln!(
+          "Could not parse template file. Using default configurations."
+        );
+        TemplateConfig::default()
+      }
     }
   }
 
   /// Parse a given `template.toml` file as substitute all default variables.
   ///
   /// Return as a `Result<TemplateConfig>` for successful and parse failure.
-  pub(crate) fn parse(path: &dyn AsRef<Path>) -> Result<Self> {
+  fn parse(project_dir: &dyn AsRef<Path>, project_name: &str) -> Result<Self> {
+    let template_path = project_dir.as_ref().join(TEMPLATE_FILE);
     // Parsed template string.
-    let parsed = substitution::parse_template_file(path, util::filename(path))?;
+    let parsed = parser::parse_template_file(&template_path, project_name)?;
 
     // Deserialize the `template.toml` file into `TemplateConfig`.
     let mut config: TemplateConfig = toml::from_str(&parsed)?;
@@ -52,23 +57,6 @@ impl TemplateConfig {
 
     // Return the parsed configuration.
     Ok(config)
-  }
-}
-
-impl FromStr for TemplateConfig {
-  type Err = Error;
-
-  fn from_str(s: &str) -> Result<Self> {
-    Self::parse(&Path::new(s))
-  }
-}
-
-impl From<&dyn AsRef<Path>> for TemplateConfig {
-  fn from(path: &dyn AsRef<Path>) -> Self {
-    match Self::parse(path) {
-      Ok(config) => config,
-      Err(_) => TemplateConfig::default(),
-    }
   }
 }
 

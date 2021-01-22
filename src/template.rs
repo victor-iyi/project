@@ -1,4 +1,7 @@
-use crate::cli::{Arguments, Cli};
+use crate::{
+  cli::{Arguments, Cli},
+  info::TemplateInfo,
+};
 
 pub(crate) mod config;
 #[cfg(feature = "git")]
@@ -8,18 +11,40 @@ pub mod git;
 pub mod guidon;
 #[cfg(feature = "hbs")]
 pub(crate) mod helpers;
+pub(crate) mod parser;
 
-pub struct Template {}
+/// Template builds and generates the project from a given template.
+pub struct Template {
+  template: TemplateInfo,
+}
 
 impl From<Arguments> for Template {
   fn from(args: Arguments) -> Template {
-    Template {}
+    Template {
+      template: TemplateInfo::new(&args.project, &args.template),
+    }
   }
 }
 
 impl From<Cli<'_>> for Template {
   fn from(cli: Cli) -> Template {
     Self::from(cli.args)
+  }
+}
+
+impl Template {
+  fn new(template_info: TemplateInfo) -> Template {
+    Template {
+      template: template_info,
+    }
+  }
+}
+
+impl Default for Template {
+  fn default() -> Template {
+    Template {
+      template: TemplateInfo::default(),
+    }
   }
 }
 

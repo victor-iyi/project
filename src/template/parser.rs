@@ -44,12 +44,12 @@ fn default_variables(
 /// }
 /// ```
 /// [`default_variables`]: fn.default_variables
-pub(crate) fn parse_template_file(
-  path: &dyn AsRef<Path>,
+pub(super) fn parse_template_file(
+  template_file: &Path,
   project_name: &str,
 ) -> Result<String> {
   // Open template file.
-  let mut file = fs::File::open(path)?;
+  let mut file = fs::File::open(template_file)?;
 
   // Read templat file to a string.
   let mut template_string = String::new();
