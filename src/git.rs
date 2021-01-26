@@ -27,11 +27,60 @@ impl GitOptions {
         .unwrap_or(GitReference::DefaultBranch),
     }
   }
+
+  pub fn path(&self) -> &str {
+    self.remote.path()
+  }
+
+  /// Fetch template from a remote path into a `template_dir`.
+  pub fn create(&self, template_dir: &Path) -> CargoResult<String> {
+    crate::git::create(template_dir, self)
+  }
+
+  pub fn branch(&self) -> String {
+    match &self.branch {
+      GitReference::Branch(b) => b.to_owned(),
+      GitReference::DefaultBranch => {
+        self.get_default_branch().expect("Unable to fetch `HEAD`.")
+      }
+      _ => {
+        unreachable!()
+      }
+    }
+  }
+
+  fn get_default_branch(&self) -> Result<String> {
+    let repo = GitRepository::init(self.path())?;
+    let mut git_remote = repo.remote_anonymous(self.remote.as_str())?;
+    git_remote.connect(git2::Direction::Fetch)?;
+    let default_branch = git_remote.default_branch()?;
+    let branch_name = default_branch
+      .as_str()
+      .unwrap_or("refs/heads/master")
+      .replace("refs/heads/", "");
+    Ok(branch_name)
+  }
+
+  /// Initializes a new repository from a given git `branch` into a `project_dir`.
+  pub fn init(
+    &self,
+    project_dir: &Path,
+    branch: &str,
+  ) -> Result<GitRepository> {
+    let mut opt = RepositoryInitOptions::new();
+    opt.bare(false);
+    opt.initial_head(branch);
+
+    Ok(
+      GitRepository::init_opts(project_dir, &opt)
+        .unwrap_or_else(|_| panic!("Couldn't init new repository")),
+    )
+  }
 }
 
-/// Checksout a `GitRemote` into a temporary folder.
-pub fn create(project_dir: &Path, opts: &GitOptions) -> CargoResult<String> {
-  let temp = Builder::new().prefix(project_dir).tempdir()?;
+/// Fetch a `GitRemote` into a `template_dir`.
+pub fn create(template_dir: &Path, opts: &GitOptions) -> CargoResult<String> {
+  let temp = Builder::new().prefix(template_dir).tempdir()?;
   let config = Config::default()?;
   let remote = GitRemote::new(&opts.remote);
 
@@ -73,13 +122,18 @@ pub fn create(project_dir: &Path, opts: &GitOptions) -> CargoResult<String> {
   };
 
   // This clones the remote and handles all the submodules.
-  db.copy_to(rev, project_dir, &config)?;
+  db.copy_to(rev, template_dir, &config)?;
+
+  // Remove the ".git" files.
+  fs::remove_dir_all(template_dir.join(".git"))
+    .unwrap_or_else(|_| panic!("Error cleaning up cloned template"));
+
   Ok(branch_name)
 }
 
 /// Clean up all items in `.git/` folder in a cloned git repo.
-pub fn remove_history(project_dir: &Path) -> Result<()> {
-  fs::remove_dir_all(project_dir.join(".git"))
+pub fn remove_history(template_dir: &Path) -> Result<()> {
+  fs::remove_dir_all(template_dir.join(".git"))
     .unwrap_or_else(|_| panic!("Error cleaning up cloned template"));
 
   Ok(())
@@ -97,9 +151,9 @@ pub fn init(project_dir: &Path, branch: &str) -> Result<GitRepository> {
   )
 }
 
-/// Delete repo.
-pub fn delete_local_repo(project_dir: &Path) -> Result<()> {
-  fs::remove_dir_all(project_dir)
+/// Delete temporary template repo from base `template_dir`.
+pub fn delete_local_repo(template_dir: &Path) -> Result<()> {
+  fs::remove_dir_all(template_dir)
     .unwrap_or_else(|_| panic!("Error cleaning up git repo"));
 
   Ok(())

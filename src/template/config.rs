@@ -4,7 +4,8 @@ use std::path::Path;
 use serde::Deserialize;
 
 use crate::{
-  engine::Engine, error::Result, info::ProjectInfo, template::parser,
+  engine::Engine, error::Result, template::parser, Error,
+  ErrorKind,
 };
 
 /// Default template file containing variable template substitution.
@@ -19,19 +20,20 @@ pub struct TemplateConfig {
   /// Directories & files to exclude (.git, .idea, .DS_Store, etc.)
   pub exclude: Option<Vec<String>>,
   /// Templating engine information.
-  pub engine: Engine,
+  pub engine: Option<Engine>,
 }
 
 impl TemplateConfig {
   /// Create & parse the `"template.toml"` file in the project base directory.
-  pub fn new(project_info: &ProjectInfo) -> TemplateConfig {
-    match Self::parse(&project_info.path, &project_info.name) {
+  pub fn new(template_dir: &Path, project_name: &str) -> TemplateConfig {
+    match Self::parse(&template_dir, project_name) {
       Ok(config) => config,
-      Err(err) => {
-        eprintln!(
-          "Could not parse template file. Using default configurations."
-        );
+      Err(err) if err.kind() == &ErrorKind::NotFound => {
+        eprintln!("Using default template configurations: {}", err);
         TemplateConfig::default()
+      }
+      Err(err) => {
+        panic!("ERROR: {}", err);
       }
     }
   }
@@ -39,8 +41,11 @@ impl TemplateConfig {
   /// Parse a given `template.toml` file as substitute all default variables.
   ///
   /// Return as a `Result<TemplateConfig>` for successful and parse failure.
-  fn parse(project_dir: &dyn AsRef<Path>, project_name: &str) -> Result<Self> {
-    let template_path = project_dir.as_ref().join(TEMPLATE_FILE);
+  fn parse(template_dir: &dyn AsRef<Path>, project_name: &str) -> Result<Self> {
+    let template_path = template_dir.as_ref().join(TEMPLATE_FILE);
+    if !template_path.exists() {
+      return Err(Error::new(ErrorKind::NotFound, "No template file."));
+    }
     // Parsed template string.
     let parsed = parser::parse_template_file(&template_path, project_name)?;
 
@@ -66,7 +71,7 @@ impl Default for TemplateConfig {
       variables: None,
       include: None,
       exclude: None,
-      engine: Engine::default(),
+      engine: Some(Engine::default()),
     }
   }
 }

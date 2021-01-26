@@ -1,6 +1,6 @@
 use crate::{
   cli::{Arguments, Cli},
-  info::TemplateInfo,
+  info::TemplateMeta,
 };
 
 pub(crate) mod config;
@@ -15,13 +15,13 @@ pub(crate) mod parser;
 
 /// Template builds and generates the project from a given template.
 pub struct Template {
-  template: TemplateInfo,
+  template: TemplateMeta,
 }
 
 impl From<Arguments> for Template {
   fn from(args: Arguments) -> Template {
     Template {
-      template: TemplateInfo::new(&args.project, &args.template),
+      template: TemplateMeta::new(&args.project, &args.template),
     }
   }
 }
@@ -33,7 +33,7 @@ impl From<Cli<'_>> for Template {
 }
 
 impl Template {
-  fn new(template_info: TemplateInfo) -> Template {
+  fn new(template_info: TemplateMeta) -> Template {
     Template {
       template: template_info,
     }
@@ -43,7 +43,7 @@ impl Template {
 impl Default for Template {
   fn default() -> Template {
     Template {
-      template: TemplateInfo::default(),
+      template: TemplateMeta::default(),
     }
   }
 }
