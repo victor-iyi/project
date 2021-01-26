@@ -218,7 +218,7 @@ impl<'a> Cli<'a> {
         // project new <local> <name>
         let path = sub_new.value_of("template").unwrap();
         let name = sub_new.value_of("name").unwrap();
-        self.args = Arguments::new(path, name, None);
+        self.args = Arguments::new(name, path, None);
       }
       // "git" subcommand.
       ("git", Some(sub_git)) => {
@@ -233,7 +233,7 @@ impl<'a> Cli<'a> {
         // project init <repo>
         let path = sub_init.value_of("repo").unwrap();
         // TODO: Add `branch` to arguments.
-        self.args = Arguments::from(path)
+        self.args = Arguments::from(path);
       }
       _ => {
         // Unrecognized command or above subcommands was not used.

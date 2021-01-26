@@ -2,10 +2,10 @@ use std::{env, path::PathBuf};
 use walkdir::{DirEntry, WalkDir};
 
 fn main() {
-  //   let walker = WalkDir::new("/Users/victor/dev/template").into_iter();
-  //   for entry in walker.filter_entry(|e| !is_venv(e)).filter_map(|e| e.ok()) {
-  //     println!("{}", entry.path().display());
-  //   }
+  let walker = WalkDir::new("/Users/victor/dev/template").into_iter();
+  for _entry in walker.filter_entry(|e| !is_venv(e)).filter_map(|e| e.ok()) {
+    // println!("{}", _entry.path().display());
+  }
 
   match std::fs::canonicalize("src/engine") {
     Ok(p) => println!("Fs can: {}", p.display()),

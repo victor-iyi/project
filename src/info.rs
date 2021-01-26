@@ -86,7 +86,7 @@ impl Default for ProjectInfo {
 
 /// `TemplateOptions` describes the kind of template we are using,
 /// either a remote template or a local template.
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub enum TemplateOptions {
   /// A local template with the path to the base template directory.
   Local(PathBuf),
@@ -112,7 +112,7 @@ impl TemplateOptions {
     // relative/path/to/template
     match Self::parse_path(path, branch.map(|s| s.to_string())) {
       Ok(opts) => opts,
-      Err(err) => panic!("Error: {}", err),
+      Err(err) => panic!("ERROR: {}", err),
     }
   }
 
@@ -131,8 +131,7 @@ impl TemplateOptions {
         match fs::canonicalize(path) {
           // Relative local file path.
           Ok(p) => Self::Local(p),
-          Err(err) => {
-            eprintln!("does not exist. {}", err);
+          Err(_err) => {
             // Short Git URI.
             Self::parse_path(&format!("https://github.com/{}", path), branch)?
           }
@@ -143,7 +142,17 @@ impl TemplateOptions {
       }
     };
 
+    println!("{:?}", opts);
     Ok(opts)
+  }
+}
+
+impl TemplateOptions {
+  pub fn path(&self) -> &Path {
+    match self {
+      TemplateOptions::Local(p) => p,
+      TemplateOptions::Remote(g) => &Path::new(g.path()),
+    }
   }
 }
 
@@ -155,14 +164,16 @@ impl From<&dyn AsRef<Path>> for TemplateOptions {
 
 impl Default for TemplateOptions {
   fn default() -> Self {
-    Self::Local(env::current_dir().unwrap_or_default())
+    let curr_dir = env::current_dir().unwrap_or_else(|_| ".".into());
+
+    Self::Local(curr_dir)
   }
 }
 
 /// Template & project comes together to load the template from remote or local
 /// path, loads the `"template.toml"` config file, and initializes git for the
 /// new project.
-pub struct TemplateInfo {
+pub struct TemplateMeta {
   #[doc(hidden)]
   template_options: TemplateOptions,
 
@@ -173,43 +184,43 @@ pub struct TemplateInfo {
   project_info: ProjectInfo,
 }
 
-impl TemplateInfo {
+impl TemplateMeta {
   pub fn new(
     project_info: &ProjectInfo,
     template_options: &TemplateOptions,
   ) -> Self {
-    TemplateInfo {
+    println!("\nProjectInfo: {:?}", project_info);
+    println!("TemplateOptions: {:?}\n", template_options);
+
+    // Create new project's directory.
+    fs::create_dir_all(&project_info.path).unwrap();
+
+    if let TemplateOptions::Remote(opts) = template_options {
+      // Download template if it's a remote template.
+      TemplateMeta::load_remote(opts, &template_options.path()).unwrap();
+    }
+
+    TemplateMeta {
+      config: TemplateConfig::new(template_options.path(), &project_info.name),
       template_options: template_options.clone(),
-      config: TemplateConfig::new(&project_info),
       project_info: project_info.clone(),
     }
   }
 
-  pub fn load(&self) -> Result<()> {
-    match &self.template_options {
-      TemplateOptions::Local(local) => {
-        // TODO: Dunno what to do here...
-        println!("Using local template: {}", local.display());
-      }
-      TemplateOptions::Remote(git_opts) => {
-        // Download remote template into project dir.
-        println!("Download repo to a temp file");
-        match git::create(&self.project_info.path, git_opts) {
-          Ok(branch) => {
-            println!("Usint the `{}` branch", branch);
-            git::remove_history(&self.project_info.path)?;
-          }
-          Err(err) => panic!("Could not create template: {}", err),
-        }
-      }
+  fn load_remote(git_opts: &GitOptions, template_dir: &Path) -> Result<()> {
+    match git_opts.create(template_dir) {
+      Ok(_branch) => {}
+      Err(err) => panic!("Could not create template: {}", err),
     }
     Ok(())
   }
 }
 
-impl Default for TemplateInfo {
-  fn default() -> TemplateInfo {
-    TemplateInfo {
+impl TemplateMeta {}
+
+impl Default for TemplateMeta {
+  fn default() -> TemplateMeta {
+    TemplateMeta {
       template_options: TemplateOptions::default(),
       config: TemplateConfig::default(),
       project_info: ProjectInfo::default(),

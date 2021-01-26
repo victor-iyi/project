@@ -59,15 +59,6 @@ pub(crate) fn filename(path: &dyn AsRef<Path>) -> &str {
   path.as_ref().file_name().and_then(|s| s.to_str()).unwrap()
 }
 
-#[inline]
-pub(crate) fn curr_dir() -> String {
-  std::env::current_dir()
-    .unwrap()
-    .to_str()
-    .unwrap()
-    .to_owned()
-}
-
 #[cfg(test)]
 mod tests {
   use super::*;
