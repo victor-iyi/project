@@ -34,6 +34,7 @@ log = "0.4"
 toml = "0.5"
 url = "2.2.0"
 heck = "0.3"
+tempfile = "3.2"
 handlebars = { version = "3.5", optional = true }
 clap = { version = "2.33", optional = true }
 git2 = { version = "0.13", optional = true }

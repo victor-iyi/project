@@ -5,7 +5,10 @@ use std::path::Path;
 pub trait Renderer {
   fn render(writer: dyn std::io::Write) -> Result<()>;
 
-  fn generate(template: Template, target_path: &dyn AsRef<Path>) -> Result<()> {
+  fn generate(
+    _template: Template,
+    _target_path: &dyn AsRef<Path>,
+  ) -> Result<()> {
     Ok(())
   }
 }

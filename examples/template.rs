@@ -1,8 +1,8 @@
-use project::{git, Cli, Template};
+use project::{Cli, Template};
 
 fn main() {
   let cli = Cli::new();
-  let template = Template::from(cli.args);
+  let _template = Template::from(cli.args);
 
   // match tmplt.generate(&"/Users/victor/dev/pricing") {
   //   Ok(_) => println!("Suuccessful"),
