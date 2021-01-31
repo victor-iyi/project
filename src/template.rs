@@ -1,3 +1,5 @@
+use walkdir::{DirEntry, WalkDir};
+
 use crate::{
   cli::{Arguments, Cli},
   error::Result,
@@ -5,6 +7,8 @@ use crate::{
   info::{ProjectInfo, TemplateOptions},
   template::config::TemplateConfig,
 };
+
+use std::{fs, path::Path};
 
 pub(crate) mod config;
 #[cfg(feature = "git")]
@@ -29,6 +33,58 @@ impl Template {
     Template {
       template: TemplateMeta::new(project_info, template_options),
     }
+  }
+}
+
+impl Template {
+  pub fn generate(&self) -> Result<()> {
+    // Project path.
+    let project_dir = self.template.project_info.path.as_path();
+    // Template path.
+    let template_dir = self.template.template_options.path();
+
+    // Walk the `template_dir`.
+    for entry in WalkDir::new(template_dir)
+      .into_iter()
+      .filter_entry(|e| !self.filter_ignore(e))
+      .filter_map(|e| e.ok())
+    {
+      // Strip `template_dir` from entry.
+      let relative_path = entry.path().strip_prefix(template_dir)?;
+      // Append stripped path to `project_dir`.
+      let target = project_dir.join(relative_path);
+
+      // TODO: Check configuration for path (`target`) to rename.
+
+      if entry.path().is_dir() {
+        fs::create_dir_all(&target)?;
+        println!("Create directory: {}", target.display());
+        continue;
+      } else {
+        // TODO: Check for files eligible for variable substitution.
+        if entry.path().ends_with("hbs") {
+          // TODO: Perform template substitution.
+          println!("Perform template substitution.");
+        } else {
+          // Copy over files.
+          fs::copy(entry.path(), &target)?;
+          println!("Copy files: {}", target.display());
+        }
+      }
+    }
+
+    Ok(())
+  }
+
+  pub fn filter_ignore(&self, entry: &DirEntry) -> bool {
+    // TODO: Filter ignored/included files here...
+    entry
+      .file_name()
+      .to_str()
+      .map(|s| {
+        s.contains("venv") || s.contains(".vscode") || s.contains(".DS_Store")
+      })
+      .unwrap_or(false)
   }
 }
 

@@ -9,6 +9,18 @@
 
 > Command line utility to create new project template.
 
+## Templates
+
+For more control of the generated project, you can create a `"template.toml"` file to configure how files are generated, variables that can
+be substituted, directories and files to include/exclude, and many more. Your template configuration file can also contain placeholders
+which are provided out-of-the-box. Currently supported palceholders are:
+
+- `{{project-name}}` - This is supplied by either passing the `name` argument to the CLI or automatically inferred from the base project
+  directory.
+
+- `{{author-name}}` - Author's name is deteremed from your `cargo` or `git` configuration or a fallback to environment variables. You can also manually set the `$NAME` or `$USERNAME` environment variable.
+
+- `{{author-email}}` - Author's email, like `author-name`, it's gotten from your `cargo` or `git` configuration and a fallback to environment variables. You can also manually set `$EMAIL` environment variable.
 
 ## Contribution
 

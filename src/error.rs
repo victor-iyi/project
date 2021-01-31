@@ -1,4 +1,4 @@
-use std::{fmt, io, str::FromStr};
+use std::{fmt, io, path, str::FromStr};
 
 /// Lotlinx Result type.
 pub type Result<T, E = Error> = std::result::Result<T, E>;
@@ -122,6 +122,12 @@ impl From<git2::Error> for Error {
 impl From<regex::Error> for Error {
   fn from(err: regex::Error) -> Self {
     Error::new(ErrorKind::RegEx, &err.to_string())
+  }
+}
+
+impl From<path::StripPrefixError> for Error {
+  fn from(err: path::StripPrefixError) -> Self {
+    Error::new(ErrorKind::StripPrefix, &err.to_string())
   }
 }
 
