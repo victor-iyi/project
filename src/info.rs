@@ -1,7 +1,6 @@
 use crate::{
   error::{Error, Result},
   git::GitOptions,
-  template::config::TemplateConfig,
   util,
 };
 
@@ -24,8 +23,24 @@ pub struct ProjectInfo {
 
 impl ProjectInfo {
   /// Create a new project info: given project local path.
-  pub fn new(s: &dyn AsRef<Path>) -> Self {
-    Self::from(s)
+  pub fn new(p: &Path) -> Self {
+    let path = PathBuf::from(p);
+
+    // Create project directory.
+    if !path.exists() {
+      fs::create_dir_all(&path).unwrap();
+    }
+
+    // Return absolute form of `path`.
+    let path = match path.canonicalize() {
+      Ok(p) => p,
+      Err(e) => panic!("{}", e),
+    };
+
+    ProjectInfo {
+      name: util::filename(&path).into(),
+      path,
+    }
   }
 }
 
@@ -57,19 +72,13 @@ impl ProjectInfo {
 
 impl From<&str> for ProjectInfo {
   fn from(s: &str) -> Self {
-    Self {
-      name: util::basename(s).into(),
-      path: PathBuf::from(s),
-    }
+    Self::new(&Path::new(s))
   }
 }
 
 impl From<&dyn AsRef<Path>> for ProjectInfo {
   fn from(p: &dyn AsRef<Path>) -> Self {
-    Self {
-      name: util::filename(p).into(),
-      path: PathBuf::from(p.as_ref()),
-    }
+    Self::new(p.as_ref())
   }
 }
 
@@ -77,10 +86,7 @@ impl Default for ProjectInfo {
   fn default() -> Self {
     let curr_dir = env::current_dir().unwrap_or_else(|_e| ".".into());
 
-    Self {
-      name: util::filename(&curr_dir).into(),
-      path: curr_dir,
-    }
+    Self::new(&curr_dir)
   }
 }
 
@@ -142,7 +148,6 @@ impl TemplateOptions {
       }
     };
 
-    println!("{:?}", opts);
     Ok(opts)
   }
 }
@@ -167,63 +172,5 @@ impl Default for TemplateOptions {
     let curr_dir = env::current_dir().unwrap_or_else(|_| ".".into());
 
     Self::Local(curr_dir)
-  }
-}
-
-/// Template & project comes together to load the template from remote or local
-/// path, loads the `"template.toml"` config file, and initializes git for the
-/// new project.
-pub struct TemplateMeta {
-  #[doc(hidden)]
-  template_options: TemplateOptions,
-
-  #[doc(hidden)]
-  config: TemplateConfig,
-
-  #[doc(hidden)]
-  project_info: ProjectInfo,
-}
-
-impl TemplateMeta {
-  pub fn new(
-    project_info: &ProjectInfo,
-    template_options: &TemplateOptions,
-  ) -> Self {
-    println!("\nProjectInfo: {:?}", project_info);
-    println!("TemplateOptions: {:?}\n", template_options);
-
-    // Create new project's directory.
-    fs::create_dir_all(&project_info.path).unwrap();
-
-    if let TemplateOptions::Remote(opts) = template_options {
-      // Download template if it's a remote template.
-      TemplateMeta::load_remote(opts, &template_options.path()).unwrap();
-    }
-
-    TemplateMeta {
-      config: TemplateConfig::new(template_options.path(), &project_info.name),
-      template_options: template_options.clone(),
-      project_info: project_info.clone(),
-    }
-  }
-
-  fn load_remote(git_opts: &GitOptions, template_dir: &Path) -> Result<()> {
-    match git_opts.create(template_dir) {
-      Ok(_branch) => {}
-      Err(err) => panic!("Could not create template: {}", err),
-    }
-    Ok(())
-  }
-}
-
-impl TemplateMeta {}
-
-impl Default for TemplateMeta {
-  fn default() -> TemplateMeta {
-    TemplateMeta {
-      template_options: TemplateOptions::default(),
-      config: TemplateConfig::default(),
-      project_info: ProjectInfo::default(),
-    }
   }
 }

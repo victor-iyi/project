@@ -1,3 +1,5 @@
+#![allow(dead_code)]
+
 use std::path::Path;
 
 /// Returns the basename of a given path. Works like Python's

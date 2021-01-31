@@ -1,14 +1,12 @@
 use crate::error::Result;
 
-use cargo::{
-  core::GitReference, sources::git::GitRemote, util::config::Config,
-  CargoResult,
+use cargo::core::GitReference;
+use git2::{
+  Cred, RemoteCallbacks, Repository as GitRepository, RepositoryInitOptions,
 };
-use git2::{Repository as GitRepository, RepositoryInitOptions};
-use tempfile::Builder;
 use url::Url;
 
-use std::{fs, path::Path};
+use std::{env, fs, path::Path};
 
 #[derive(Debug, Clone)]
 pub struct GitOptions {
@@ -29,12 +27,64 @@ impl GitOptions {
   }
 
   pub fn path(&self) -> &str {
-    self.remote.path()
+    self.remote.path().trim_start_matches('/')
   }
 
-  /// Fetch template from a remote path into a `template_dir`.
-  pub fn create(&self, template_dir: &Path) -> CargoResult<String> {
-    crate::git::create(template_dir, self)
+  pub fn clone_repo(&self) -> Result<()> {
+    // let temp = Builder::new().prefix(template_dir).tempdir()?;
+    // printnl!("Temporary dir: {}", temp.path());
+
+    // Local path where remote repo will be cloned.
+    let clone_path = Path::new(self.path());
+
+    // Clone the project.
+    // let _repo = match GitRepository::clone(self.remote.as_str(), clone_path) {
+    //   Ok(repo) => repo,
+    //   Err(e) => panic!("Failed to clone: {}", e),
+    // };
+
+    // Prepare callbacks.
+    let mut callbacks = RemoteCallbacks::new();
+    callbacks.credentials(|_url, username_from_url, _allowed_types| {
+      Cred::ssh_key(
+        username_from_url.unwrap(),
+        None,
+        Path::new(&format!("{}/.ssh/id_rsa", env::var("HOME").unwrap())),
+        None,
+      )
+    });
+
+    // Prepare fetch options.
+    let mut fo = git2::FetchOptions::new();
+    fo.remote_callbacks(callbacks);
+
+    // Prepare builder.
+    let mut builder = git2::build::RepoBuilder::new();
+    builder.fetch_options(fo);
+
+    // Create clone directory if it doesn't exist.
+    if !clone_path.exists() {
+      fs::create_dir_all(clone_path)?;
+      // } else {
+      //   // Remove the contents of the directory.
+      //   fs::remove_dir_all(clone_path)?;
+      //   fs::create_dir_all(clone_path)?;
+    }
+
+    // Clone the project.
+    builder.clone(self.remote.as_str(), clone_path)?;
+
+    // Remove ".git" folder in cloned repo.
+    self.remove_git_history(clone_path);
+
+    // Successfully cloned.
+    Ok(())
+  }
+
+  #[inline]
+  fn remove_git_history(&self, dir: &Path) {
+    fs::remove_dir_all(dir.join(".git"))
+      .unwrap_or_else(|err| panic!("Could not clean up git history: {}", err));
   }
 
   pub fn branch(&self) -> String {
@@ -60,83 +110,6 @@ impl GitOptions {
       .replace("refs/heads/", "");
     Ok(branch_name)
   }
-
-  /// Initializes a new repository from a given git `branch` into a `project_dir`.
-  pub fn init(
-    &self,
-    project_dir: &Path,
-    branch: &str,
-  ) -> Result<GitRepository> {
-    let mut opt = RepositoryInitOptions::new();
-    opt.bare(false);
-    opt.initial_head(branch);
-
-    Ok(
-      GitRepository::init_opts(project_dir, &opt)
-        .unwrap_or_else(|_| panic!("Couldn't init new repository")),
-    )
-  }
-}
-
-/// Fetch a `GitRemote` into a `template_dir`.
-pub fn create(template_dir: &Path, opts: &GitOptions) -> CargoResult<String> {
-  let temp = Builder::new().prefix(template_dir).tempdir()?;
-  let config = Config::default()?;
-  let remote = GitRemote::new(&opts.remote);
-
-  // Checkout repo branch.
-  let ((db, rev), branch_name) = match &opts.branch {
-    GitReference::Branch(branch_name) => (
-      remote.checkout(&temp.path(), None, &opts.branch, None, &config)?,
-      branch_name.clone(),
-    ),
-    GitReference::DefaultBranch => {
-      // Cargo has a specific behavior for now for handling the "default" branch. It forces
-      // it to the branch named "master" even if the actual default branch of the repository
-      // is something else. They intent to change this behavior in the future but they don't
-      // want to break the compactibility.
-      //
-      // See issues:
-      //  - https://github.com/rust-lang/cargo/issues/8364
-      //  - https://github.com/rust-lang/cargo/issues/8468
-      let repo = GitRepository::init(&temp.path())?;
-      let mut git_remote = repo.remote_anonymous(remote.url().as_str())?;
-      git_remote.connect(git2::Direction::Fetch)?;
-      let default_branch = git_remote.default_branch()?;
-      let branch_name = default_branch
-        .as_str()
-        .unwrap_or("refs/heads/master")
-        .replace("refs/heads/", "");
-      (
-        remote.checkout(
-          &temp.path(),
-          None,
-          &GitReference::Branch(branch_name.clone()),
-          None,
-          &config,
-        )?,
-        branch_name,
-      )
-    }
-    _ => unreachable!(),
-  };
-
-  // This clones the remote and handles all the submodules.
-  db.copy_to(rev, template_dir, &config)?;
-
-  // Remove the ".git" files.
-  fs::remove_dir_all(template_dir.join(".git"))
-    .unwrap_or_else(|_| panic!("Error cleaning up cloned template"));
-
-  Ok(branch_name)
-}
-
-/// Clean up all items in `.git/` folder in a cloned git repo.
-pub fn remove_history(template_dir: &Path) -> Result<()> {
-  fs::remove_dir_all(template_dir.join(".git"))
-    .unwrap_or_else(|_| panic!("Error cleaning up cloned template"));
-
-  Ok(())
 }
 
 /// Initializes a new repository from a given git `branch` into a `project_dir`.
@@ -152,9 +125,10 @@ pub fn init(project_dir: &Path, branch: &str) -> Result<GitRepository> {
 }
 
 /// Delete temporary template repo from base `template_dir`.
-pub fn delete_local_repo(template_dir: &Path) -> Result<()> {
+#[inline]
+pub fn delete_local_repo(template_dir: &dyn AsRef<Path>) -> Result<()> {
   fs::remove_dir_all(template_dir)
-    .unwrap_or_else(|_| panic!("Error cleaning up git repo"));
+    .unwrap_or_else(|_| panic!("Error deleting local repo"));
 
   Ok(())
 }
