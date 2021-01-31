@@ -8,7 +8,11 @@ use crate::{
   template::config::TemplateConfig,
 };
 
-use std::{fs, path::Path};
+use std::{
+  fs::{self, File},
+  io::{BufReader, Read, Write},
+  path::Path,
+};
 
 pub(crate) mod config;
 #[cfg(feature = "git")]
@@ -58,25 +62,46 @@ impl Template {
 
       if entry.path().is_dir() {
         fs::create_dir_all(&target)?;
-        println!("Create directory: {}", target.display());
         continue;
       } else {
         // TODO: Check for files eligible for variable substitution.
         if entry.path().ends_with("hbs") {
+          println!(
+            "Performing template substitution for {}.",
+            entry.path().display()
+          );
+
           // TODO: Perform template substitution.
-          println!("Perform template substitution.");
+          let content = self.substitue(&entry.path())?;
+
+          // Writing substituted content into `target`.
+          let mut file = File::create(&target)?;
+          file.write_all(&content.as_bytes())?;
         } else {
           // Copy over files.
           fs::copy(entry.path(), &target)?;
-          println!("Copy files: {}", target.display());
         }
       }
     }
 
+    println!("Done generating template into {}", project_dir.display());
     Ok(())
   }
 
-  pub fn filter_ignore(&self, entry: &DirEntry) -> bool {
+  fn substitue(&self, entry: &Path) -> Result<String> {
+    // Open file for reading.
+    let file = File::open(entry)?;
+    let mut buf_reader = BufReader::new(file);
+
+    // Read file contents into `contents`.
+    let mut contents = String::new();
+    buf_reader.read_to_string(&mut contents)?;
+
+    // TODO: Do some substitution with `contents`.
+    Ok(contents)
+  }
+
+  fn filter_ignore(&self, entry: &DirEntry) -> bool {
     // TODO: Filter ignored/included files here...
     entry
       .file_name()
@@ -88,17 +113,17 @@ impl Template {
   }
 }
 
-impl From<Arguments> for Template {
-  fn from(args: Arguments) -> Template {
+impl From<&Arguments> for Template {
+  fn from(args: &Arguments) -> Template {
     Template {
       template: TemplateMeta::new(&args.project, &args.template),
     }
   }
 }
 
-impl From<Cli<'_>> for Template {
-  fn from(cli: Cli) -> Template {
-    Self::from(cli.args)
+impl From<&Cli<'_>> for Template {
+  fn from(cli: &Cli) -> Template {
+    Self::from(&cli.args)
   }
 }
 
@@ -109,31 +134,6 @@ impl Default for Template {
     }
   }
 }
-
-// impl Template {
-//   pub fn generate(&self, dest: &dyn AsRef<Path>) -> Result<()> {
-//     // Target destination where template will be created.
-//     let target: PathBuf = dest.as_ref().to_owned();
-
-//     // Create destination folders.
-//     std::fs::create_dir_all(dest.as_ref())?;
-
-//     // Walk the path and copy src path over to dest path.
-//     for entry in WalkDir::new(&self.path).into_iter().filter_map(|e| e.ok()) {
-//       if entry.path().is_dir() {
-//         std::fs::create_dir_all(entry.path())?;
-//         continue;
-//       } else if entry.path().is_file() {
-//         // Open the file.
-//         std::fs::copy(entry.path(), &target)?;
-//       } else {
-//         eprintln!("Do not know what's happening here...");
-//       }
-//       println!("{}", &entry.path().display());
-//     }
-//     Ok(())
-//   }
-// }
 
 /// Template & project comes together to load the template from remote or local
 /// path, loads the `"template.toml"` config file, and initializes git for the
@@ -199,6 +199,7 @@ impl Drop for TemplateMeta {
     match &self.template_options {
       TemplateOptions::Remote(git_opts) => {
         // Delete cloned repo.
+        println!("Cleaning up clone templates...");
         git::delete_local_repo(&git_opts.path()).unwrap();
       }
       TemplateOptions::Local(_) => {}

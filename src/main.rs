@@ -1,9 +1,13 @@
-use project::Cli;
+use project::{Cli, Template};
 
 fn main() {
   let cli = Cli::new();
-  let args = cli.args;
-  println!("Project name: {}", args.project.name);
-  println!("Project path: {}", args.project.path.display());
-  println!("Verbose: {} | quite: {}", args.verbose, args.quiet);
+  let template = Template::from(&cli.args);
+  match template.generate() {
+    Ok(_) => println!("Success!"),
+    Err(err) => eprintln!("ERROR: {}", err),
+  }
+  println!("Project name: {}", cli.args.project.name);
+  println!("Project path: {}", cli.args.project.path.display());
+  println!("Verbose: {} | quite: {}", cli.args.verbose, cli.args.quiet);
 }
