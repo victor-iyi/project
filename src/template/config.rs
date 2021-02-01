@@ -4,23 +4,22 @@ use std::path::Path;
 use serde::Deserialize;
 
 use crate::{
-  engine::Engine, error::Result, template::parser, Error,
-  ErrorKind,
+  engine::Engine, error::Result, template::parser, Error, ErrorKind,
 };
 
 /// Default template file containing variable template substitution.
 pub(crate) const TEMPLATE_FILE: &str = "template.toml";
 
 #[derive(Deserialize)]
-pub struct TemplateConfig {
+pub(crate) struct TemplateConfig {
   /// Replace these variable keys with their value in template files.
-  pub variables: Option<HashMap<String, String>>,
+  pub(crate) variables: Option<HashMap<String, String>>,
   /// The files you want to include as template.
-  pub include: Option<Vec<String>>,
-  /// Directories & files to exclude (.git, .idea, .DS_Store, etc.)
-  pub exclude: Option<Vec<String>>,
+  pub(crate) filters: Filters,
+  /// Files or folders to rename.
+  pub(crate) rename: Option<HashMap<String, String>>,
   /// Templating engine information.
-  pub engine: Option<Engine>,
+  pub(crate) engine: Option<Engine>,
 }
 
 impl TemplateConfig {
@@ -48,13 +47,13 @@ impl TemplateConfig {
     }
     // Parsed template string.
     let parsed = parser::parse_template_file(&template_path, project_name)?;
-
+    println!("Parsed: {}", parsed);
     // Deserialize the `template.toml` file into `TemplateConfig`.
     let mut config: TemplateConfig = toml::from_str(&parsed)?;
 
     // Assert both `include` & `exclude` isn't both provided.
-    if config.include.is_some() && config.exclude.is_some() {
-      config.exclude = None;
+    if config.filters.include.is_some() && config.filters.exclude.is_some() {
+      config.filters.exclude = None;
       eprintln!(
         "One of `include` or `exclude` should be provided, but not both."
       )
@@ -69,9 +68,34 @@ impl Default for TemplateConfig {
   fn default() -> TemplateConfig {
     TemplateConfig {
       variables: None,
-      include: None,
-      exclude: None,
+      rename: None,
+      filters: Filters::default(),
       engine: Some(Engine::default()),
+    }
+  }
+}
+
+/// Files or Directories to be included or ignored while parsing
+/// templates.
+#[derive(Debug, Deserialize)]
+pub(crate) struct Filters {
+  /// The files you want to include in generated projects.
+  pub(crate) include: Option<Vec<String>>,
+  /// Directories & files to exlucde (e.g: .git, .idea, .DS_Store, etc.)
+  pub(crate) exclude: Option<Vec<String>>,
+}
+
+impl Default for Filters {
+  fn default() -> Filters {
+    Filters {
+      include: None,
+      // Exclude these dirs by default.
+      exclude: Some(vec![
+        "venv".to_string(),
+        ".git".to_string(),
+        ".idea".to_string(),
+        ".vscode".to_string(),
+      ]),
     }
   }
 }

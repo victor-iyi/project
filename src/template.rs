@@ -59,6 +59,13 @@ impl Template {
       let target = project_dir.join(relative_path);
 
       // TODO: Check configuration for path (`target`) to rename.
+      // for var in &self.template.config.rename {
+      //   for key in var.keys() {
+      //     if let Some(value) = var.get(key) {
+      //       // Rename key in `target` to `val`.
+      //     }
+      //   }
+      // }
 
       if entry.path().is_dir() {
         fs::create_dir_all(&target)?;

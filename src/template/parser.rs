@@ -5,11 +5,11 @@ use std::{fs, io::Read, path::Path};
 
 /// Default variables substitution in `template.toml`.
 ///
-/// - `{ project-name }` - Project name.
+/// - `{{ project-name }}` - Project name.
 ///
-/// - `{ author-name }` - Author's name, gotten from Git config.
+/// - `{{ author-name }}` - Author's name, gotten from Git config.
 ///
-/// - `{ author-email }` - Author's email address, gotten from Git config.
+/// - `{{ author-email }}` - Author's email address, gotten from Git config.
 fn default_variables(
   haystack: &str,
   project_name: &str,
@@ -18,15 +18,15 @@ fn default_variables(
 ) -> Result<String> {
   // Project name.
   let result =
-    Regex::new(r"\{\s?project-name\s?\}")?.replace_all(haystack, project_name);
+    Regex::new(r"\{\{\s?project-name\s?\}\}")?.replace_all(haystack, project_name);
 
   // Author name.
   let result =
-    Regex::new(r"\{\s?author-name\s?\}")?.replace_all(&result, author_name);
+    Regex::new(r"\{\{\s?author-name\s?\}\}")?.replace_all(&result, author_name);
 
   // Author email.
-  let result =
-    Regex::new(r"\{\s?author-email\s?\}")?.replace_all(&result, author_email);
+  let result = Regex::new(r"\{\{\s?author-email\s?\}\}")?
+    .replace_all(&result, author_email);
 
   Ok(result.to_string())
 }
@@ -76,11 +76,11 @@ mod tests {
   fn test_default_variables() {
     let template_str = r#"
 [variables]
-name = "{ project-name }"
-email = "[{author-name} <{author-email}>]"
+name = "{{ project-name }}"
+email = "[{{author-name} <{{author-email}}>]"
 
 [directories]
-template = "{project-name}"
+template = "{{project-name}}"
   "#;
 
     let expected_str = r#"
