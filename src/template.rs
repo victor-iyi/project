@@ -11,16 +11,12 @@ use crate::{
 use std::{
   fs::{self, File},
   io::{BufReader, Read, Write},
-  path::Path,
+  ops::Deref,
+  path::{Path, PathBuf},
 };
 
 pub(crate) mod config;
-#[cfg(feature = "git")]
-// #[cfg(feature = "hbs")]
-// pub mod git;
-#[cfg(feature = "hbs")]
-pub mod guidon;
-#[cfg(feature = "hbs")]
+pub(crate) mod engine;
 pub(crate) mod helpers;
 pub(crate) mod parser;
 
@@ -43,9 +39,9 @@ impl Template {
 impl Template {
   pub fn generate(&self) -> Result<()> {
     // Project path.
-    let project_dir = self.template.project_info.path.as_path();
+    let project_dir = self.project_info.path.as_path();
     // Template path.
-    let template_dir = self.template.template_options.path();
+    let template_dir = self.template_options.path();
 
     // Walk the `template_dir`.
     for entry in WalkDir::new(template_dir)
@@ -59,40 +55,61 @@ impl Template {
       let target = project_dir.join(relative_path);
 
       // TODO: Check configuration for path (`target`) to rename.
-      // for var in &self.template.config.rename {
-      //   for key in var.keys() {
-      //     if let Some(value) = var.get(key) {
-      //       // Rename key in `target` to `val`.
-      //     }
-      //   }
-      // }
+      // target = self.rename(&entry.path(), &target);
 
       if entry.path().is_dir() {
         fs::create_dir_all(&target)?;
         continue;
       } else {
         // TODO: Check for files eligible for variable substitution.
-        if entry.path().ends_with("hbs") {
-          println!(
-            "Performing template substitution for {}.",
-            entry.path().display()
-          );
-
+        if let Some(ext) = entry.path().extension() {
+          let _variables = self.config.variables.clone().unwrap();
           // TODO: Perform template substitution.
-          let content = self.substitue(&entry.path())?;
+          if ext == "hbs" && cfg!(feature = "hbs") {
+            println!(
+              "Performing HBS template substitution for {}.",
+              entry.path().display()
+            );
+          // TODO: Handlebars templating.
+          } else if ext == "liquid" {
+            println!(
+              "Performing LIQUID template substitution for {}.",
+              entry.path().display()
+            );
+          // TODO: Liquid templating.
+          } else {
+            println!(
+              "Performing DEFAULT template substitution for {}.",
+              entry.path().display()
+            );
 
-          // Writing substituted content into `target`.
-          let mut file = File::create(&target)?;
-          file.write_all(&content.as_bytes())?;
-        } else {
-          // Copy over files.
-          fs::copy(entry.path(), &target)?;
-        }
+            // RegEx substitution.
+            let content = self.substitue(&entry.path())?;
+            println!("Content: {}", &content);
+            // Writing substituted content into `target`.
+            let mut file = File::create(&target)?;
+            file.write_all(&content.as_bytes())?;
+            continue;
+          }
+        };
+        // Copy over files.
+        fs::copy(entry.path(), &target)?;
       }
     }
 
     println!("Done generating template into {}", project_dir.display());
     Ok(())
+  }
+
+  fn rename(&self, _entry: &Path, _target: &Path) -> PathBuf {
+    // for var in &self.template.config.rename {
+    //   for key in var.keys() {
+    //     if let Some(value) = var.get(key) {
+    //       // Rename key in `target` to `val`.
+    //     }
+    //   }
+    // }
+    PathBuf::new()
   }
 
   fn substitue(&self, entry: &Path) -> Result<String> {
@@ -142,10 +159,17 @@ impl Default for Template {
   }
 }
 
+impl Deref for Template {
+  type Target = TemplateMeta;
+  fn deref(&self) -> &Self::Target {
+    &self.template
+  }
+}
+
 /// Template & project comes together to load the template from remote or local
 /// path, loads the `"template.toml"` config file, and initializes git for the
 /// new project.
-struct TemplateMeta {
+pub struct TemplateMeta {
   #[doc(hidden)]
   template_options: TemplateOptions,
 

@@ -1,8 +1,10 @@
-#![allow(dead_code)]
-
 use handlebars::{Handlebars, HelperDef};
+use serde::Serialize;
 
-use crate::template::helpers;
+use crate::{
+  error::{Error, ErrorKind, Result},
+  template::helpers,
+};
 
 /// Helper function
 ///
@@ -45,11 +47,11 @@ use crate::template::helpers;
 /// let t = Template::new("path/to/src", "path/to/dest");
 /// t.re
 /// ```
-pub(crate) type HelperFn = dyn HelperDef + Send + Sync;
+type HelperFn = dyn HelperDef + Send + Sync;
 
 /// Register builtin default Handlebar helpers.
 #[inline]
-pub(crate) fn register_default_helpers(handlebars: &mut Handlebars) {
+fn register_default_helpers(handlebars: &mut Handlebars) {
   // Register handlebars helpers.
   register_helper_fn(handlebars, "replace", Box::new(helpers::replace));
   register_helper_fn(handlebars, "append", Box::new(helpers::append));
@@ -60,11 +62,25 @@ pub(crate) fn register_default_helpers(handlebars: &mut Handlebars) {
 
 /// Register a new handlebar helper function.
 #[inline]
-pub(crate) fn register_helper_fn(
+fn register_helper_fn(
   hbs: &mut Handlebars,
   name: &str,
   helper_fn: Box<HelperFn>,
 ) {
   // Register handlebars helpers.
   hbs.register_helper(name, helper_fn);
+}
+
+pub(crate) fn parse<T: Serialize>(
+  content: &str,
+  variables: &T,
+) -> Result<String> {
+  let mut hb = Handlebars::new();
+  hb.set_strict_mode(true);
+
+  // Register default helpers.
+  register_default_helpers(&mut hb);
+
+  hb.render_template(content, variables)
+    .map_err(|e| Error::new(ErrorKind::ParseError, &e.to_string()))
 }

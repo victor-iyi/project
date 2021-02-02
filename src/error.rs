@@ -29,8 +29,8 @@ pub enum ErrorKind {
   /// Regular expression error.
   RegEx,
 
-  /// Renderer error.
-  Renderer,
+  /// Parser error.
+  ParseError,
 
   /// Generic error kind.
   Error,
@@ -100,13 +100,6 @@ impl From<toml::de::Error> for Error {
   }
 }
 
-#[cfg(feature = "hbs")]
-impl From<handlebars::TemplateRenderError> for Error {
-  fn from(err: handlebars::TemplateRenderError) -> Self {
-    Error::new(ErrorKind::StripPrefix, &err.to_string())
-  }
-}
-
 impl From<url::ParseError> for Error {
   fn from(err: url::ParseError) -> Self {
     Error::new(ErrorKind::Url, &err.to_string())
@@ -128,6 +121,18 @@ impl From<regex::Error> for Error {
 impl From<path::StripPrefixError> for Error {
   fn from(err: path::StripPrefixError) -> Self {
     Error::new(ErrorKind::StripPrefix, &err.to_string())
+  }
+}
+
+impl From<handlebars::TemplateRenderError> for Error {
+  fn from(err: handlebars::TemplateRenderError) -> Self {
+    Error::new(ErrorKind::StripPrefix, &err.to_string())
+  }
+}
+
+impl From<liquid::Error> for Error {
+  fn from(err: liquid::Error) -> Self {
+    Error::new(ErrorKind::ParseError, &format!("{}", err))
   }
 }
 

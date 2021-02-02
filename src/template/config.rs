@@ -1,10 +1,14 @@
+#![allow(dead_code)]
+
 use std::collections::HashMap;
 use std::path::Path;
 
 use serde::Deserialize;
 
 use crate::{
-  engine::Engine, error::Result, template::parser, Error, ErrorKind,
+  error::Result,
+  template::{engine::Engine, parser},
+  Error, ErrorKind,
 };
 
 /// Default template file containing variable template substitution.
@@ -47,7 +51,7 @@ impl TemplateConfig {
     }
     // Parsed template string.
     let parsed = parser::parse_template_file(&template_path, project_name)?;
-    println!("Parsed: {}", parsed);
+
     // Deserialize the `template.toml` file into `TemplateConfig`.
     let mut config: TemplateConfig = toml::from_str(&parsed)?;
 
