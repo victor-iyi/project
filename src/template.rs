@@ -13,7 +13,6 @@ use crate::{
 
 use std::{
   collections::HashMap,
-  ffi::OsStr,
   fs,
   ops::Deref,
   path::{Path, PathBuf},
@@ -56,25 +55,12 @@ impl Template {
       // Strip `template_dir` from entry.
       let relative_path = entry.path().strip_prefix(template_dir)?;
       // Append stripped path to `project_dir`.
-      let mut target = project_dir.join(relative_path);
-
-      println!("Realtive path: {}", relative_path.display());
-      println!("Target: {}", target.display());
-      println!("Entry: {}\n", entry.path().display());
-
-      // std::process::exit(0);
-      // TODO: Check configuration for path (`target`) to rename.
-      target = self.rename(&entry.path(), &target);
+      let target = self.rename_path(relative_path, project_dir);
 
       if entry.path().is_dir() {
         fs::create_dir_all(&target)?;
-        continue;
-      } else if let Some(ext) = entry.path().extension() {
-        self.substitute(ext, entry.path(), &target)?;
-      // println!("File: {}", entry.path().display());
       } else {
-        println!("===Entry: {}===", entry.path().display());
-        fs::copy(entry.path(), &target)?;
+        self.substitute(entry.path(), &target)?;
       }
     }
 
@@ -82,37 +68,98 @@ impl Template {
     Ok(())
   }
 
-  fn rename(&self, _entry: &Path, target: &Path) -> PathBuf {
+  /// Rename path based on the config file i.e. `"template.toml"` file.
+  /// If there's no `[rename]` clause in the template file, the template
+  /// filename is used instead.
+  ///
+  /// # Example
+  ///
+  /// ```toml
+  /// # template.toml
+  /// [rename]
+  /// template = {{ project-name }}
+  /// bin = "scripts"
+  /// ```
+  ///
+  /// `{{ project-name }}` will be resolved to whatever the project's name is
+  /// e.g `"my_project"`. Therefore, `path/to/template/file` will be renamed
+  /// to `path/to/my_project/file`. Same with `bin` which will be renamed
+  /// to `scripts`.
+  fn rename_path(&self, relative_path: &Path, project_dir: &Path) -> PathBuf {
     let maps = self.rename_maps();
     if maps.is_empty() {
-      PathBuf::from(target)
+      // Append stripped path to `project_dir`.
+      project_dir.join(relative_path)
     } else {
-      // TODO: Go through the `maps` & rename paths accordingly.
-      for (_key, _value) in &maps {
-        // If `key` occurs in `target`
-        // Replace `value` with `key` in `target`.
+      // Go through the `maps` & rename paths accordingly.
+      let mut rel_path = relative_path.to_path_buf();
+      for (key, value) in &maps {
+        // If `key` occurs in `rel_path`, replace the occurrenc with `value`.
+        let renamed: PathBuf = rel_path
+          .iter()
+          .map(|path| -> &str {
+            if key == path.to_str().unwrap() {
+              value
+            } else {
+              path.to_str().unwrap()
+            }
+          })
+          .collect();
+
+        if renamed != rel_path {
+          rel_path = renamed;
+        }
       }
-      PathBuf::from(target)
+      // Append `rel_path` to `project_dir`.
+      project_dir.join(rel_path)
     }
   }
 
-  fn substitute(&self, ext: &OsStr, src: &Path, dest: &Path) -> Result<()> {
-    let engine = Engine::new(ext);
+  /// Template substitution is done here, based on the `src` file.
+  ///
+  /// If the `src` file or the template file has extensions supported by [`Engine`],
+  /// template substitution will be done for such file, otherwise the file is just
+  /// copied over to the `dest` or target/project file.
+  ///
+  /// **NOTE:** For files without extension; if you want it to be templated, append
+  /// any extension supported by [`Engine`] e.g `".hbs"` or `".liquid"` as it's extension.
+  /// It will be parsed and the extension will be dropped before writing to the target
+  /// file.
+  ///
+  /// See [`Engine`] for more details.
+  ///
+  /// [`Engine`]: struct.Engine
+  fn substitute(&self, src: &Path, dest: &Path) -> Result<()> {
+    if let Some(ext) = src.extension() {
+      let engine = Engine::new(ext);
 
-    engine.render(src, &dest, &self.variables())?;
+      engine.render(src, &dest, &self.variables())?;
+    } else {
+      // Copy over file without extension. If you want it to be
+      // templated, append ".hbs" or ".liquid" as extension.
+      fs::copy(src, dest)?;
+    }
 
     Ok(())
   }
 
   fn filter_ignore(&self, entry: &DirEntry) -> bool {
-    // TODO: Filter ignored/included files here...
-    entry
-      .file_name()
-      .to_str()
-      .map(|s| {
-        s.contains("venv") || s.contains(".vscode") || s.contains(".DS_Store")
-      })
-      .unwrap_or(false)
+    // Filterignored/included files here...
+    let (should_ignore, files) = self.get_ignored();
+
+    if should_ignore {
+      entry
+        .file_name()
+        .to_str()
+        .map(|s| files.contains(&s.to_string()))
+        .unwrap_or(false)
+    } else {
+      !entry
+        .file_name()
+        .to_str()
+        .map(|s| files.contains(&s.to_string()))
+        .unwrap_or(false)
+    }
   }
 }
 
@@ -203,6 +250,14 @@ impl TemplateMeta {
     match &self.config.rename {
       Some(rename) => rename.clone(),
       None => HashMap::new(),
+    }
+  }
+
+  pub(crate) fn get_ignored(&self) -> (bool, Vec<String>) {
+    if self.config.filters.include.is_some() {
+      (true, self.config.filters.include.clone().unwrap())
+    } else {
+      (true, self.config.filters.exclude.clone().unwrap())
     }
   }
 }
