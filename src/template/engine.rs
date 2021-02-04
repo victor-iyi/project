@@ -21,7 +21,6 @@ use std::{
 
 mod handlebars;
 mod liquid;
-mod regex;
 
 /// Available templating engine.
 #[derive(Deserialize)]

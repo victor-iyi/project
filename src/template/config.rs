@@ -22,7 +22,7 @@ pub(crate) struct TemplateConfig {
 
 impl TemplateConfig {
   /// Create & parse the `"template.toml"` file in the project base directory.
-  pub fn new(template_dir: &Path, project_name: &str) -> TemplateConfig {
+  pub(crate) fn new(template_dir: &Path, project_name: &str) -> TemplateConfig {
     match Self::parse(&template_dir, project_name) {
       Ok(config) => config,
       Err(err) if err.kind() == &ErrorKind::NotFound => {
