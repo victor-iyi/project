@@ -2,10 +2,9 @@ use project::{Cli, Template};
 
 fn main() {
   let cli = Cli::new();
-  let _template = Template::from(cli.args);
-
-  // match tmplt.generate(&"/Users/victor/dev/pricing") {
-  //   Ok(_) => println!("Suuccessful"),
-  //   Err(err) => eprintln!("Error: {}", err),
-  // }
+  let template = Template::from(&cli.args);
+  match template.generate() {
+    Ok(_) => println!("Success!"),
+    Err(err) => eprintln!("ERROR: {}", err),
+  }
 }

@@ -1,31 +1,28 @@
+#![allow(dead_code)]
+
 use std::collections::HashMap;
 use std::path::Path;
 
 use serde::Deserialize;
 
-use crate::{
-  engine::Engine, error::Result, template::parser, Error,
-  ErrorKind,
-};
+use crate::{error::Result, template::parser, Error, ErrorKind};
 
 /// Default template file containing variable template substitution.
 pub(crate) const TEMPLATE_FILE: &str = "template.toml";
 
 #[derive(Deserialize)]
-pub struct TemplateConfig {
+pub(crate) struct TemplateConfig {
   /// Replace these variable keys with their value in template files.
-  pub variables: Option<HashMap<String, String>>,
+  pub(crate) variables: Option<HashMap<String, String>>,
   /// The files you want to include as template.
-  pub include: Option<Vec<String>>,
-  /// Directories & files to exclude (.git, .idea, .DS_Store, etc.)
-  pub exclude: Option<Vec<String>>,
-  /// Templating engine information.
-  pub engine: Option<Engine>,
+  pub(crate) filters: Filters,
+  /// Files or folders to rename.
+  pub(crate) rename: Option<HashMap<String, String>>,
 }
 
 impl TemplateConfig {
   /// Create & parse the `"template.toml"` file in the project base directory.
-  pub fn new(template_dir: &Path, project_name: &str) -> TemplateConfig {
+  pub(crate) fn new(template_dir: &Path, project_name: &str) -> TemplateConfig {
     match Self::parse(&template_dir, project_name) {
       Ok(config) => config,
       Err(err) if err.kind() == &ErrorKind::NotFound => {
@@ -53,8 +50,8 @@ impl TemplateConfig {
     let mut config: TemplateConfig = toml::from_str(&parsed)?;
 
     // Assert both `include` & `exclude` isn't both provided.
-    if config.include.is_some() && config.exclude.is_some() {
-      config.exclude = None;
+    if config.filters.include.is_some() && config.filters.exclude.is_some() {
+      config.filters.exclude = None;
       eprintln!(
         "One of `include` or `exclude` should be provided, but not both."
       )
@@ -69,9 +66,33 @@ impl Default for TemplateConfig {
   fn default() -> TemplateConfig {
     TemplateConfig {
       variables: None,
+      rename: None,
+      filters: Filters::default(),
+    }
+  }
+}
+
+/// Files or Directories to be included or ignored while parsing
+/// templates.
+#[derive(Debug, Deserialize)]
+pub(crate) struct Filters {
+  /// The files you want to include in generated projects.
+  pub(crate) include: Option<Vec<String>>,
+  /// Directories & files to exlucde (e.g: .git, .idea, .DS_Store, etc.)
+  pub(crate) exclude: Option<Vec<String>>,
+}
+
+impl Default for Filters {
+  fn default() -> Filters {
+    Filters {
       include: None,
-      exclude: None,
-      engine: Some(Engine::default()),
+      // Exclude these dirs by default.
+      exclude: Some(vec![
+        "venv".to_string(),
+        ".git".to_string(),
+        ".idea".to_string(),
+        ".vscode".to_string(),
+      ]),
     }
   }
 }

@@ -1,18 +1,25 @@
+use walkdir::{DirEntry, WalkDir};
+
 use crate::{
   cli::{Arguments, Cli},
   error::Result,
   git::{self, GitOptions},
   info::{ProjectInfo, TemplateOptions},
-  template::config::TemplateConfig,
+  template::{
+    config::TemplateConfig,
+    engine::{Engine, TemplateEngine},
+  },
+};
+
+use std::{
+  collections::HashMap,
+  fs,
+  ops::Deref,
+  path::{Path, PathBuf},
 };
 
 pub(crate) mod config;
-#[cfg(feature = "git")]
-// #[cfg(feature = "hbs")]
-// pub mod git;
-#[cfg(feature = "hbs")]
-pub mod guidon;
-#[cfg(feature = "hbs")]
+pub(crate) mod engine;
 pub(crate) mod helpers;
 pub(crate) mod parser;
 
@@ -32,17 +39,141 @@ impl Template {
   }
 }
 
-impl From<Arguments> for Template {
-  fn from(args: Arguments) -> Template {
+impl Template {
+  pub fn generate(&self) -> Result<()> {
+    // Project path.
+    let project_dir = self.project_info.path.as_path();
+    // Template path.
+    let template_dir = self.template_options.path();
+
+    // Walk the `template_dir`.
+    for entry in WalkDir::new(template_dir)
+      .into_iter()
+      .filter_entry(|e| !self.filter_ignore(e))
+      .filter_map(|e| e.ok())
+    {
+      // Strip `template_dir` from entry.
+      let relative_path = entry.path().strip_prefix(template_dir)?;
+      // Append stripped path to `project_dir`.
+      let target = self.rename_path(relative_path, project_dir);
+
+      if entry.path().is_dir() {
+        fs::create_dir_all(&target)?;
+      } else {
+        self.substitute(entry.path(), &target)?;
+      }
+    }
+
+    println!("Done generating template into {}", project_dir.display());
+    Ok(())
+  }
+
+  /// Rename path based on the config file i.e. `"template.toml"` file.
+  /// If there's no `[rename]` clause in the template file, the template
+  /// filename is used instead.
+  ///
+  /// # Example
+  ///
+  /// ```toml
+  /// # template.toml
+  /// [rename]
+  /// template = {{ project-name }}
+  /// bin = "scripts"
+  /// ```
+  ///
+  /// `{{ project-name }}` will be resolved to whatever the project's name is
+  /// e.g `"my_project"`. Therefore, `path/to/template/file` will be renamed
+  /// to `path/to/my_project/file`. Same with `bin` which will be renamed
+  /// to `scripts`.
+  fn rename_path(&self, relative_path: &Path, project_dir: &Path) -> PathBuf {
+    let maps = self.rename_maps();
+    if maps.is_empty() {
+      // Append stripped path to `project_dir`.
+      project_dir.join(relative_path)
+    } else {
+      // Go through the `maps` & rename paths accordingly.
+      let mut rel_path = relative_path.to_path_buf();
+      for (key, value) in &maps {
+        // If `key` occurs in `rel_path`, replace the occurrenc with `value`.
+        let renamed: PathBuf = rel_path
+          .iter()
+          .map(|path| -> &str {
+            if key == path.to_str().unwrap() {
+              value
+            } else {
+              path.to_str().unwrap()
+            }
+          })
+          .collect();
+
+        if renamed != rel_path {
+          rel_path = renamed;
+        }
+      }
+      // Append `rel_path` to `project_dir`.
+      project_dir.join(rel_path)
+    }
+  }
+
+  /// Template substitution is done here, based on the `src` file.
+  ///
+  /// If the `src` file or the template file has extensions supported by [`Engine`],
+  /// template substitution will be done for such file, otherwise the file is just
+  /// copied over to the `dest` or target/project file.
+  ///
+  /// **NOTE:** For files without extension; if you want it to be templated, append
+  /// any extension supported by [`Engine`] e.g `".hbs"` or `".liquid"` as it's extension.
+  /// It will be parsed and the extension will be dropped before writing to the target
+  /// file.
+  ///
+  /// See [`Engine`] for more details.
+  ///
+  /// [`Engine`]: struct.Engine
+  fn substitute(&self, src: &Path, dest: &Path) -> Result<()> {
+    if let Some(ext) = src.extension() {
+      let engine = Engine::new(ext);
+
+      engine.render(src, &dest, &self.variables())?;
+    } else {
+      // Copy over file without extension. If you want it to be
+      // templated, append ".hbs" or ".liquid" as extension.
+      fs::copy(src, dest)?;
+    }
+
+    Ok(())
+  }
+
+  fn filter_ignore(&self, entry: &DirEntry) -> bool {
+    // Filterignored/included files here...
+    let (should_ignore, files) = self.get_ignored();
+
+    if should_ignore {
+      entry
+        .file_name()
+        .to_str()
+        .map(|s| files.contains(&s.to_string()))
+        .unwrap_or(false)
+    } else {
+      !entry
+        .file_name()
+        .to_str()
+        .map(|s| files.contains(&s.to_string()))
+        .unwrap_or(false)
+    }
+  }
+}
+
+impl From<&Arguments> for Template {
+  fn from(args: &Arguments) -> Template {
     Template {
       template: TemplateMeta::new(&args.project, &args.template),
     }
   }
 }
 
-impl From<Cli<'_>> for Template {
-  fn from(cli: Cli) -> Template {
-    Self::from(cli.args)
+impl From<&Cli<'_>> for Template {
+  fn from(cli: &Cli) -> Template {
+    Self::from(&cli.args)
   }
 }
 
@@ -54,35 +185,17 @@ impl Default for Template {
   }
 }
 
-// impl Template {
-//   pub fn generate(&self, dest: &dyn AsRef<Path>) -> Result<()> {
-//     // Target destination where template will be created.
-//     let target: PathBuf = dest.as_ref().to_owned();
-
-//     // Create destination folders.
-//     std::fs::create_dir_all(dest.as_ref())?;
-
-//     // Walk the path and copy src path over to dest path.
-//     for entry in WalkDir::new(&self.path).into_iter().filter_map(|e| e.ok()) {
-//       if entry.path().is_dir() {
-//         std::fs::create_dir_all(entry.path())?;
-//         continue;
-//       } else if entry.path().is_file() {
-//         // Open the file.
-//         std::fs::copy(entry.path(), &target)?;
-//       } else {
-//         eprintln!("Do not know what's happening here...");
-//       }
-//       println!("{}", &entry.path().display());
-//     }
-//     Ok(())
-//   }
-// }
+impl Deref for Template {
+  type Target = TemplateMeta;
+  fn deref(&self) -> &Self::Target {
+    &self.template
+  }
+}
 
 /// Template & project comes together to load the template from remote or local
 /// path, loads the `"template.toml"` config file, and initializes git for the
 /// new project.
-struct TemplateMeta {
+pub struct TemplateMeta {
   #[doc(hidden)]
   template_options: TemplateOptions,
 
@@ -125,7 +238,29 @@ impl TemplateMeta {
   }
 }
 
-impl TemplateMeta {}
+impl TemplateMeta {
+  pub(crate) fn variables(&self) -> HashMap<String, String> {
+    match &self.config.variables {
+      Some(var) => var.clone(),
+      None => HashMap::new(),
+    }
+  }
+
+  pub(crate) fn rename_maps(&self) -> HashMap<String, String> {
+    match &self.config.rename {
+      Some(rename) => rename.clone(),
+      None => HashMap::new(),
+    }
+  }
+
+  pub(crate) fn get_ignored(&self) -> (bool, Vec<String>) {
+    if self.config.filters.include.is_some() {
+      (true, self.config.filters.include.clone().unwrap())
+    } else {
+      (true, self.config.filters.exclude.clone().unwrap())
+    }
+  }
+}
 
 impl Default for TemplateMeta {
   fn default() -> TemplateMeta {
@@ -143,6 +278,7 @@ impl Drop for TemplateMeta {
     match &self.template_options {
       TemplateOptions::Remote(git_opts) => {
         // Delete cloned repo.
+        println!("Cleaning up clone templates...");
         git::delete_local_repo(&git_opts.path()).unwrap();
       }
       TemplateOptions::Local(_) => {}
