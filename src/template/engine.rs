@@ -13,7 +13,8 @@ use serde::{Deserialize, Serialize};
 
 use std::{
   collections::HashMap,
-  fs::File,
+  ffi::OsStr,
+  fs::{self, File},
   io::{BufReader, Read, Write},
   path::Path,
 };
@@ -25,17 +26,23 @@ mod regex;
 /// Available templating engine.
 #[derive(Deserialize)]
 pub(crate) enum Engine {
-  /// Use regular expression.
-  RegEx(String),
   /// Handlebars with file extension: "hbs".
-  Handlebars(String),
+  Handlebars,
   /// Liquid templating engine with file extension: "liquid".
-  Liquid(String),
+  Liquid,
+  /// Regular file; no need to be parsed.
+  None,
 }
 
-impl Default for Engine {
-  fn default() -> Engine {
-    Engine::Handlebars(String::from("hbs"))
+impl Engine {
+  pub(crate) fn new(ext: &OsStr) -> Engine {
+    if ext == "hbs" {
+      Engine::Handlebars
+    } else if ext == "liquid" {
+      Engine::Liquid
+    } else {
+      Engine::None
+    }
   }
 }
 
@@ -66,10 +73,17 @@ impl TemplateEngine for Engine {
     buf_reader.read_to_string(&mut content)?;
 
     let new_content = match self {
-      Engine::RegEx(_) => regex::parse(&content, variables)?,
-      Engine::Handlebars(_) => handlebars::parse(&content, variables)?,
-      Engine::Liquid(_) => liquid::parse(&content, variables)?,
+      Engine::Handlebars => handlebars::parse(&content, variables)?,
+      Engine::Liquid => liquid::parse(&content, variables)?,
+      Engine::None => {
+        // Move file over to target.
+        fs::copy(src, target)?;
+        return Ok(());
+      }
     };
+
+    // Rename the file. Get rid of ".hbs" or ".liquid".
+    let target = target.with_extension("");
 
     // Write new content into target file.
     let mut target_file = File::create(target)?;

@@ -5,12 +5,16 @@ use crate::{
   error::Result,
   git::{self, GitOptions},
   info::{ProjectInfo, TemplateOptions},
-  template::config::TemplateConfig,
+  template::{
+    config::TemplateConfig,
+    engine::{Engine, TemplateEngine},
+  },
 };
 
 use std::{
-  fs::{self, File},
-  io::{BufReader, Read, Write},
+  collections::HashMap,
+  ffi::OsStr,
+  fs,
   ops::Deref,
   path::{Path, PathBuf},
 };
@@ -52,47 +56,24 @@ impl Template {
       // Strip `template_dir` from entry.
       let relative_path = entry.path().strip_prefix(template_dir)?;
       // Append stripped path to `project_dir`.
-      let target = project_dir.join(relative_path);
+      let mut target = project_dir.join(relative_path);
 
+      println!("Realtive path: {}", relative_path.display());
+      println!("Target: {}", target.display());
+      println!("Entry: {}\n", entry.path().display());
+
+      // std::process::exit(0);
       // TODO: Check configuration for path (`target`) to rename.
-      // target = self.rename(&entry.path(), &target);
+      target = self.rename(&entry.path(), &target);
 
       if entry.path().is_dir() {
         fs::create_dir_all(&target)?;
         continue;
+      } else if let Some(ext) = entry.path().extension() {
+        self.substitute(ext, entry.path(), &target)?;
+      // println!("File: {}", entry.path().display());
       } else {
-        // TODO: Check for files eligible for variable substitution.
-        if let Some(ext) = entry.path().extension() {
-          let _variables = self.config.variables.clone().unwrap();
-          // TODO: Perform template substitution.
-          if ext == "hbs" && cfg!(feature = "hbs") {
-            println!(
-              "Performing HBS template substitution for {}.",
-              entry.path().display()
-            );
-          // TODO: Handlebars templating.
-          } else if ext == "liquid" {
-            println!(
-              "Performing LIQUID template substitution for {}.",
-              entry.path().display()
-            );
-          // TODO: Liquid templating.
-          } else {
-            println!(
-              "Performing DEFAULT template substitution for {}.",
-              entry.path().display()
-            );
-
-            // RegEx substitution.
-            let content = self.substitue(&entry.path())?;
-            println!("Content: {}", &content);
-            // Writing substituted content into `target`.
-            let mut file = File::create(&target)?;
-            file.write_all(&content.as_bytes())?;
-            continue;
-          }
-        };
-        // Copy over files.
+        println!("===Entry: {}===", entry.path().display());
         fs::copy(entry.path(), &target)?;
       }
     }
@@ -101,28 +82,26 @@ impl Template {
     Ok(())
   }
 
-  fn rename(&self, _entry: &Path, _target: &Path) -> PathBuf {
-    // for var in &self.template.config.rename {
-    //   for key in var.keys() {
-    //     if let Some(value) = var.get(key) {
-    //       // Rename key in `target` to `val`.
-    //     }
-    //   }
-    // }
-    PathBuf::new()
+  fn rename(&self, _entry: &Path, target: &Path) -> PathBuf {
+    let maps = self.rename_maps();
+    if maps.is_empty() {
+      PathBuf::from(target)
+    } else {
+      // TODO: Go through the `maps` & rename paths accordingly.
+      for (_key, _value) in &maps {
+        // If `key` occurs in `target`
+        // Replace `value` with `key` in `target`.
+      }
+      PathBuf::from(target)
+    }
   }
 
-  fn substitue(&self, entry: &Path) -> Result<String> {
-    // Open file for reading.
-    let file = File::open(entry)?;
-    let mut buf_reader = BufReader::new(file);
+  fn substitute(&self, ext: &OsStr, src: &Path, dest: &Path) -> Result<()> {
+    let engine = Engine::new(ext);
 
-    // Read file contents into `contents`.
-    let mut contents = String::new();
-    buf_reader.read_to_string(&mut contents)?;
+    engine.render(src, &dest, &self.variables())?;
 
-    // TODO: Do some substitution with `contents`.
-    Ok(contents)
+    Ok(())
   }
 
   fn filter_ignore(&self, entry: &DirEntry) -> bool {
@@ -212,7 +191,21 @@ impl TemplateMeta {
   }
 }
 
-impl TemplateMeta {}
+impl TemplateMeta {
+  pub(crate) fn variables(&self) -> HashMap<String, String> {
+    match &self.config.variables {
+      Some(var) => var.clone(),
+      None => HashMap::new(),
+    }
+  }
+
+  pub(crate) fn rename_maps(&self) -> HashMap<String, String> {
+    match &self.config.rename {
+      Some(rename) => rename.clone(),
+      None => HashMap::new(),
+    }
+  }
+}
 
 impl Default for TemplateMeta {
   fn default() -> TemplateMeta {

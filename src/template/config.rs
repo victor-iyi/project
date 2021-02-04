@@ -5,11 +5,7 @@ use std::path::Path;
 
 use serde::Deserialize;
 
-use crate::{
-  error::Result,
-  template::{engine::Engine, parser},
-  Error, ErrorKind,
-};
+use crate::{error::Result, template::parser, Error, ErrorKind};
 
 /// Default template file containing variable template substitution.
 pub(crate) const TEMPLATE_FILE: &str = "template.toml";
@@ -22,8 +18,6 @@ pub(crate) struct TemplateConfig {
   pub(crate) filters: Filters,
   /// Files or folders to rename.
   pub(crate) rename: Option<HashMap<String, String>>,
-  /// Templating engine information.
-  pub(crate) engine: Option<Engine>,
 }
 
 impl TemplateConfig {
@@ -74,7 +68,6 @@ impl Default for TemplateConfig {
       variables: None,
       rename: None,
       filters: Filters::default(),
-      engine: Some(Engine::default()),
     }
   }
 }
