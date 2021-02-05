@@ -17,8 +17,8 @@ fn default_variables(
   author_email: &str,
 ) -> Result<String> {
   // Project name.
-  let result =
-    Regex::new(r"\{\{\s?project-name\s?\}\}")?.replace_all(haystack, project_name);
+  let result = Regex::new(r"\{\{\s?project-name\s?\}\}")?
+    .replace_all(haystack, project_name);
 
   // Author name.
   let result =
@@ -77,7 +77,7 @@ mod tests {
     let template_str = r#"
 [variables]
 name = "{{ project-name }}"
-email = "[{{author-name} <{{author-email}}>]"
+email = "[{{author-name}} <{{author-email}}>]"
 
 [directories]
 template = "{{project-name}}"

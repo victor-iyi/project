@@ -57,6 +57,7 @@ use crate::{
 use clap::{App, AppSettings, Arg};
 use console::style;
 
+/// Useable argument passed into `Cli`.
 pub struct Arguments {
   /// Project information.
   pub project: ProjectInfo,
