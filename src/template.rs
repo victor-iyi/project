@@ -69,7 +69,7 @@ impl Template {
     println!("{} {}", emoji::SPARKLE, style("Finished!").bold().green(),);
     println!(
       "{} \"{}\"",
-      style("Project created in: ").bold(),
+      style("Project created in: ").bold().white(),
       style(&self.project_info.path().display()).bold().yellow()
     );
 

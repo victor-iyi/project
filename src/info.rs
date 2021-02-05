@@ -36,7 +36,13 @@ impl ProjectInfo {
     // Return absolute form of `path`.
     let path = match path.canonicalize() {
       Ok(p) => p,
-      Err(e) => panic!("{}", e),
+      Err(e) => panic!(
+        "{} {} \"{}\" {}",
+        emoji::ERROR,
+        style("Could not resolve path: ").bold().red(),
+        style(&path.display()).bold(),
+        style(e).bold().red()
+      ),
     };
 
     let mut name: String = util::filename(&path).into();
@@ -48,7 +54,7 @@ impl ProjectInfo {
     println!(
       "{} {} {}",
       emoji::WRENCH,
-      style("Creating project info: ").bold().white(),
+      style("Creating project: ").bold().white(),
       style(&name).bold().yellow()
     );
 

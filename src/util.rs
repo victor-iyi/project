@@ -1,5 +1,10 @@
 #![allow(dead_code)]
-
+//! Utility functions for path handling.
+//!
+//! - `basename` - Returns the basename of a given path (as `&str`).
+//! - `filename` - Returns the filename of a path.
+//! - `diff_paths` - Renturns the relative path given two paths.
+//!
 use std::path::{Component, Path, PathBuf};
 
 /// Returns the basename of a given path. Works like Python's
@@ -19,7 +24,7 @@ use std::path::{Component, Path, PathBuf};
 ///
 /// # }
 /// ```
-pub(crate) fn basename(path: &str) -> &str {
+pub fn basename(path: &str) -> &str {
   Path::new(path)
     .file_name()
     .and_then(|s| s.to_str())
@@ -48,7 +53,7 @@ pub(crate) fn basename(path: &str) -> &str {
 /// # Example
 ///
 /// ```rust
-/// # use project::util::basename;
+/// # use project::util::filename;
 ///
 /// # fn main() {
 ///
@@ -58,7 +63,7 @@ pub(crate) fn basename(path: &str) -> &str {
 ///
 /// # }
 /// ```
-pub(crate) fn filename(path: &dyn AsRef<Path>) -> &str {
+pub fn filename(path: &dyn AsRef<Path>) -> &str {
   path.as_ref().file_name().and_then(|s| s.to_str()).unwrap()
 }
 
@@ -75,7 +80,8 @@ pub(crate) fn filename(path: &dyn AsRef<Path>) -> &str {
 ///
 /// ```rust
 /// # use project::util::diff_paths;
-/// use std::path::PathBuf;
+/// # use std::path::PathBuf;
+///
 /// # fn main() {
 /// let baz: PathBuf = "/foo/bar/baz".into();
 /// let bar: PathBuf = "/foo/bar".into();

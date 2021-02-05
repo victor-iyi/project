@@ -9,6 +9,7 @@ fn main() {
     Ok(_) => {
       println!("{}", style("Go to project's directory:").bold());
       println!("\tcd {}", cli.args.project.rel_path().display());
+      println!("\tls");
     }
     Err(err) => eprintln!(
       "{} {}",

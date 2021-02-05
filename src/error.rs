@@ -1,8 +1,11 @@
+//! Error handler.
+//!
 use std::{fmt, io, path, str::FromStr};
 
-/// Lotlinx Result type.
+/// Project Result type.
 pub type Result<T, E = Error> = std::result::Result<T, E>;
 
+/// `ErrorKind` list the various kinds of error that can occur.
 #[derive(Debug, PartialEq)]
 pub enum ErrorKind {
   /// Cannot find a file or directory.
