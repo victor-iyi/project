@@ -1,9 +1,11 @@
 use crate::{
+  emoji,
   error::{Error, Result},
   git::GitOptions,
   util,
 };
 
+use console::style;
 use heck::{KebabCase, SnakeCase};
 use url::{ParseError, Url};
 
@@ -37,10 +39,20 @@ impl ProjectInfo {
       Err(e) => panic!("{}", e),
     };
 
-    ProjectInfo {
-      name: util::filename(&path).into(),
-      path,
+    let mut name: String = util::filename(&path).into();
+    // TODO: add flag for converting project name to kebab case.
+    if true {
+      name = name.to_kebab_case();
     }
+
+    println!(
+      "{} {} {}",
+      emoji::WRENCH,
+      style("Creating project info: ").bold().white(),
+      style(&name).bold().yellow()
+    );
+
+    ProjectInfo { name, path }
   }
 }
 
@@ -63,6 +75,17 @@ impl ProjectInfo {
   /// Get owned project path.
   pub fn path(&self) -> PathBuf {
     self.path.clone()
+  }
+
+  /// Get relative path.
+  pub fn rel_path(&self) -> PathBuf {
+    let path = self.path();
+    let curr_dir = env::current_dir().unwrap_or_else(|_| ".".into());
+
+    match util::diff_paths(&path, &curr_dir) {
+      Some(p) => p,
+      None => path,
+    }
   }
 
   pub fn path_kebab_case(&self) -> String {
@@ -118,7 +141,12 @@ impl TemplateOptions {
     // relative/path/to/template
     match Self::parse_path(path, branch.map(|s| s.to_string())) {
       Ok(opts) => opts,
-      Err(err) => panic!("ERROR: {}", err),
+      Err(err) => panic!(
+        "{} {} {}",
+        emoji::ERROR,
+        style("ERROR: ").bold().red(),
+        style(err).bold().red()
+      ),
     }
   }
 

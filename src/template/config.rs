@@ -1,11 +1,11 @@
 #![allow(dead_code)]
 
-use std::collections::HashMap;
-use std::path::Path;
+use std::{collections::HashMap, path::Path};
 
+use console::style;
 use serde::Deserialize;
 
-use crate::{error::Result, template::parser, Error, ErrorKind};
+use crate::{emoji, error::Result, template::parser, Error, ErrorKind};
 
 /// Default template file containing variable template substitution.
 pub(crate) const TEMPLATE_FILE: &str = "template.toml";
@@ -26,11 +26,22 @@ impl TemplateConfig {
     match Self::parse(&template_dir, project_name) {
       Ok(config) => config,
       Err(err) if err.kind() == &ErrorKind::NotFound => {
-        eprintln!("Using default template configurations: {}", err);
+        eprintln!(
+          "{} {}",
+          emoji::SHRUG,
+          style("Using default template configurations")
+            .bold()
+            .yellow()
+        );
         TemplateConfig::default()
       }
       Err(err) => {
-        panic!("ERROR: {}", err);
+        panic!(
+          "{} {} {}",
+          emoji::ERROR,
+          style("ERROR:").bold().red(),
+          style(err).bold().red()
+        );
       }
     }
   }
@@ -53,7 +64,13 @@ impl TemplateConfig {
     if config.filters.include.is_some() && config.filters.exclude.is_some() {
       config.filters.exclude = None;
       eprintln!(
-        "One of `include` or `exclude` should be provided, but not both."
+        "{} {}",
+        emoji::WARN,
+        style(
+          "One of `include` or `exclude` should be provided, but not both."
+        )
+        .bold()
+        .yellow()
       )
     }
 

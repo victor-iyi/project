@@ -1,5 +1,6 @@
-use crate::error::Result;
+use crate::{emoji, error::Result};
 
+use console::style;
 use git2::{Config as GitConfig, Repository as GitRepository};
 
 use std::env;
@@ -40,8 +41,12 @@ pub(crate) fn discover_author() -> Result<(String, Option<String>)> {
     None => {
       let username_var = if cfg!(windows) { "USERNAME" } else { "USER" };
       panic!(
-        "could not determine the current user, please set ${}",
-        username_var
+        "{} {}{}",
+        emoji::WRENCH,
+        style("Could not determine the current user, please set $")
+          .bold()
+          .red(),
+        style(&username_var).bold().red()
       );
     }
   };
@@ -74,7 +79,7 @@ pub(crate) fn discover_author() -> Result<(String, Option<String>)> {
 }
 
 fn get_environment_variable(variables: &[&str]) -> Option<String> {
-  variables.iter().filter_map(|var| env::var(var).ok()).next()
+  variables.iter().find_map(|var| env::var(var).ok())
 }
 
 fn find_real_git_config() -> Option<GitConfig> {

@@ -1,5 +1,6 @@
 mod authors;
 pub mod cli;
+pub mod emoji;
 mod error;
 pub mod git;
 mod info;

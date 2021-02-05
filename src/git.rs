@@ -1,6 +1,7 @@
-use crate::error::Result;
+use crate::{emoji, error::Result};
 
 use cargo::core::GitReference;
+use console::style;
 use git2::{
   Cred, RemoteCallbacks, Repository as GitRepository, RepositoryInitOptions,
 };
@@ -83,15 +84,27 @@ impl GitOptions {
 
   #[inline]
   fn remove_git_history(&self, dir: &Path) {
-    fs::remove_dir_all(dir.join(".git"))
-      .unwrap_or_else(|err| panic!("Could not clean up git history: {}", err));
+    fs::remove_dir_all(dir.join(".git")).unwrap_or_else(|err| {
+      eprintln!(
+        "{} {} {}",
+        emoji::WARN,
+        style("Could not clean up git history: {}").bold().yellow(),
+        style(err).bold().yellow()
+      )
+    });
   }
 
   pub fn branch(&self) -> String {
     match &self.branch {
       GitReference::Branch(b) => b.to_owned(),
       GitReference::DefaultBranch => {
-        self.get_default_branch().expect("Unable to fetch `HEAD`.")
+        self.get_default_branch().unwrap_or_else(|_| {
+          panic!(
+            "{} {}",
+            emoji::ERROR,
+            style("Unable to fetch `HEAD`.").bold().red()
+          )
+        })
       }
       _ => {
         unreachable!()
@@ -119,16 +132,26 @@ pub fn init(project_dir: &Path, branch: &str) -> Result<GitRepository> {
   opt.initial_head(branch);
 
   Ok(
-    GitRepository::init_opts(project_dir, &opt)
-      .unwrap_or_else(|_| panic!("Couldn't init new repository")),
+    GitRepository::init_opts(project_dir, &opt).unwrap_or_else(|_| {
+      panic!(
+        "{} {}",
+        emoji::ERROR,
+        style("Couldn't init new repository").bold().red()
+      )
+    }),
   )
 }
 
 /// Delete temporary template repo from base `template_dir`.
 #[inline]
 pub fn delete_local_repo(template_dir: &dyn AsRef<Path>) -> Result<()> {
-  fs::remove_dir_all(template_dir)
-    .unwrap_or_else(|_| panic!("Error deleting local repo"));
+  fs::remove_dir_all(template_dir).unwrap_or_else(|_| {
+    panic!(
+      "{} {}",
+      emoji::ERROR,
+      style("Could not delete local repo").bold().red()
+    )
+  });
 
   Ok(())
 }

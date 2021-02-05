@@ -49,9 +49,13 @@
 //! $ project --version
 //! ```
 //!
-use crate::info::{ProjectInfo, TemplateOptions};
+use crate::{
+  emoji,
+  info::{ProjectInfo, TemplateOptions},
+};
 
 use clap::{App, AppSettings, Arg};
+use console::style;
 
 pub struct Arguments {
   /// Project information.
@@ -107,12 +111,7 @@ pub struct Cli<'a> {
 
 impl Default for Cli<'_> {
   fn default() -> Self {
-    let mut cli = Self {
-      args: Arguments::default(),
-      matches: Self::default_args(),
-    };
-    cli.parse_args();
-    cli
+    Self::new()
   }
 }
 
@@ -120,7 +119,12 @@ impl<'a> Cli<'a> {
   /// Creates default arguments with `Cli::default()`
   /// then parses the default arguments with `parse_args()`.
   pub fn new() -> Cli<'a> {
-    Self::default()
+    let mut cli = Self {
+      args: Arguments::default(),
+      matches: Self::default_args(),
+    };
+    cli.parse_args();
+    cli
   }
 
   /// Create new Cli instance from `clap::ArgMaches<'a>` instance.
@@ -237,7 +241,12 @@ impl<'a> Cli<'a> {
       }
       _ => {
         // Unrecognized command or above subcommands was not used.
-        eprintln!("Unrecognized command.\n{}", self.matches.usage());
+        eprintln!(
+          "{} {} {}",
+          emoji::SHRUG,
+          style("Unrecognized command.\n").bold().yellow(),
+          style(&self.matches.usage()).bold().yellow()
+        );
         std::process::exit(0);
       }
     };

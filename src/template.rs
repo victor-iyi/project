@@ -1,7 +1,9 @@
+use console::style;
 use walkdir::{DirEntry, WalkDir};
 
 use crate::{
   cli::{Arguments, Cli},
+  emoji,
   error::Result,
   git::{self, GitOptions},
   info::{ProjectInfo, TemplateOptions},
@@ -64,7 +66,13 @@ impl Template {
       }
     }
 
-    println!("Done generating template into {}", project_dir.display());
+    println!("{} {}", emoji::SPARKLE, style("Finished!").bold().green(),);
+    println!(
+      "{} \"{}\"",
+      style("Project created in: ").bold(),
+      style(&self.project_info.path().display()).bold().yellow()
+    );
+
     Ok(())
   }
 
@@ -211,9 +219,6 @@ impl TemplateMeta {
     project_info: &ProjectInfo,
     template_options: &TemplateOptions,
   ) -> Self {
-    println!("\nProjectInfo: {:?}", project_info);
-    println!("TemplateOptions: {:?}\n", template_options);
-
     if let TemplateOptions::Remote(opts) = template_options {
       // Download template if it's a remote template.
       TemplateMeta::load_remote(opts).unwrap();
@@ -228,11 +233,21 @@ impl TemplateMeta {
 
   /// Clone remote repo into local path.
   fn load_remote(git_opts: &GitOptions) -> Result<()> {
-    println!("Cloning remote repo into {}", git_opts.path());
+    println!(
+      "{} {} {}",
+      emoji::WRENCH,
+      style("Cloning remote repo into ").bold().yellow(),
+      style(&git_opts.path()).bold().yellow()
+    );
 
     match git_opts.clone_repo() {
       Ok(_) => {}
-      Err(err) => panic!("Could not create template: {}", err),
+      Err(err) => panic!(
+        "{} {} {}",
+        emoji::ERROR,
+        style("Could not create template:").bold().red(),
+        style(err).bold().red()
+      ),
     }
     Ok(())
   }
@@ -278,7 +293,11 @@ impl Drop for TemplateMeta {
     match &self.template_options {
       TemplateOptions::Remote(git_opts) => {
         // Delete cloned repo.
-        println!("Cleaning up clone templates...");
+        println!(
+          "{} {}",
+          emoji::WRENCH,
+          style("Cleaning up cloned templates...").bold().yellow()
+        );
         git::delete_local_repo(&git_opts.path()).unwrap();
       }
       TemplateOptions::Local(_) => {}
