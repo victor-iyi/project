@@ -48,7 +48,7 @@ impl ProjectInfo {
     let mut name: String = util::filename(&path).into();
     // TODO: add flag for converting project name to kebab case.
     if true {
-      name = name.to_kebab_case();
+      name = name.to_snake_case();
     }
 
     println!(

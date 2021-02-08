@@ -1,4 +1,4 @@
-use crate::{emoji, error::Result};
+use crate::{emoji, error::Result, util};
 
 use cargo::core::GitReference;
 use console::style;
@@ -27,8 +27,10 @@ impl GitOptions {
     }
   }
 
+  #[inline]
   pub fn path(&self) -> &str {
-    self.remote.path().trim_start_matches('/')
+    // self.remote.path().trim_start_matches('/')
+    util::basename(self.remote.path())
   }
 
   pub fn clone_repo(&self) -> Result<()> {

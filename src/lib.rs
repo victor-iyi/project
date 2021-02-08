@@ -152,15 +152,16 @@
 //! [handlebars helpers docs]: https://docs.rs/handlebars/3.5.2/handlebars/struct.Handlebars.html#method.register_helper
 
 mod authors;
-pub mod cli;
-pub mod emoji;
+mod cli;
+mod emoji;
 mod error;
 pub mod git;
 mod info;
-pub mod template;
+mod template;
 pub mod util;
 
 // Exported public API.
 pub use self::cli::{Arguments, Cli};
 pub use self::error::{Error, ErrorKind, Result};
+pub use self::info::{ProjectInfo, TemplateOptions};
 pub use self::template::Template;
