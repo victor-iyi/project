@@ -50,6 +50,7 @@ impl GitOptions {
     let mut callbacks = RemoteCallbacks::new();
     callbacks.credentials(|_url, username_from_url, _allowed_types| {
       Cred::ssh_key(
+        // TODO: If `username_from_url` is None - Project is likely a private repo.
         username_from_url.unwrap(),
         None,
         Path::new(&format!("{}/.ssh/id_rsa", env::var("HOME").unwrap())),

@@ -178,14 +178,20 @@ impl<'a> Cli<'a> {
             Arg::with_name("branch")
               .long("branch").short("b")
               .takes_value(true)
-              .help("Sepcify which branch to checkout. If no brach is given the repo's `HEAD` branch is used.")
+              .help("Sepcify which branch to checkout. If no brach is given the repo's `HEAD` branch is used."),
+            Arg::with_name("source")
+              .long("source").short("s")
+              .takes_value(true)
+              .default_value("github")
+              .possible_values(&["github", "gitlab", "bitbucket"])
+              .help("Remote source is adviced if the remote is a short URL to avoid using wrong source.")
           ])
       )
       .subcommand(
         // $ project init <repo/local>
         App::new("init")
           .about("Initialize new project from current dir.")
-          .setting(AppSettings::SubcommandRequiredElseHelp)
+          .setting(AppSettings::ArgRequiredElseHelp)
           .arg(
             Arg::with_name("repo")
               .required(true)

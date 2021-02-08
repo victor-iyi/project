@@ -132,6 +132,53 @@ pub enum TemplateOptions {
   Remote(GitOptions),
 }
 
+#[allow(dead_code)]
+#[derive(Debug)]
+pub enum RemoteSource {
+  GitHub,
+  GitLab,
+  BitBucket,
+}
+
+#[allow(dead_code)]
+impl RemoteSource {
+  pub fn to_str(&self) -> &str {
+    match self {
+      RemoteSource::GitHub => "github",
+      RemoteSource::GitLab => "gitlab",
+      RemoteSource::BitBucket => "bitbucket",
+    }
+  }
+
+  pub fn from_str(s: &str) -> Self {
+    match s {
+      "github" => Self::GitHub,
+      "gitlab" => Self::GitLab,
+      "bitbucket" => Self::BitBucket,
+      _ => panic!(
+        "{} {} {}",
+        emoji::ERROR,
+        style("Unknown source:").bold().red(),
+        style(s).bold()
+      ),
+    }
+  }
+
+  pub fn get_remote(&self, username: &str, repo: &str) -> String {
+    match self {
+      RemoteSource::GitHub => {
+        format!("https://github.com/{}/{}.git", username, repo)
+      }
+      RemoteSource::GitLab => {
+        format!("https://gitlab.com/{}/{}.git", username, repo)
+      }
+      RemoteSource::BitBucket => {
+        format!("https://{0}@bitbucket.org/{0}/{1}", username, repo)
+      }
+    }
+  }
+}
+
 impl TemplateOptions {
   /// Creates a `TemplateOption` given a file path or URL. URL can either be a full
   /// git URL e.g https://github.com/username/repo  or a shortened form e.g
@@ -156,6 +203,11 @@ impl TemplateOptions {
     }
   }
 
+  pub fn set_source(&self, _source: &str) {
+    // TODO: Find a way to add source as part of the template's remote options.
+    // self.source = RemoteSource::from_str(source);
+  }
+
   /// Parses a given path as URL or local file path.
   ///
   /// Path can be one of:
@@ -173,7 +225,22 @@ impl TemplateOptions {
           Ok(p) => Self::Local(p),
           Err(_err) => {
             // Short Git URI.
-            Self::parse_path(&format!("https://github.com/{}", path), branch)?
+            // TODO: Add `--source` flag to cli.
+            let source = RemoteSource::GitHub;
+            let path = match source {  
+              RemoteSource::GitHub => {
+                format!("https://github.com/{}.git", path)
+              }
+              RemoteSource::GitLab => {
+                format!("https://gitlab.com/{}.git", path)
+              }
+              RemoteSource::BitBucket => {
+                // FIXME: Re-format for bit-bucket.
+                // https://username@bitbucket.org/username/repo.git
+                format!("https://username@bitbucket.org/{}.git", path)
+              }
+            };
+            Self::parse_path(&path, branch)?
           }
         }
       }
