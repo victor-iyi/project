@@ -227,7 +227,7 @@ impl TemplateOptions {
             // Short Git URI.
             // TODO: Add `--source` flag to cli.
             let source = RemoteSource::GitHub;
-            let path = match source {  
+            let path = match source {
               RemoteSource::GitHub => {
                 format!("https://github.com/{}.git", path)
               }

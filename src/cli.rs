@@ -107,7 +107,7 @@ pub struct Cli<'a> {
   /// Command line arguments.
   pub args: Arguments,
   /// Command line argument matches.
-  matches: clap::ArgMatches<'a>,
+  pub matches: clap::ArgMatches<'a>,
 }
 
 impl Default for Cli<'_> {
@@ -120,12 +120,9 @@ impl<'a> Cli<'a> {
   /// Creates default arguments with `Cli::default()`
   /// then parses the default arguments with `parse_args()`.
   pub fn new() -> Cli<'a> {
-    let mut cli = Self {
-      args: Arguments::default(),
-      matches: Self::default_args(),
-    };
-    cli.parse_args();
-    cli
+    let matches = Self::default_args();
+    let args = Self::parse_args(&matches);
+    Self { args, matches }
   }
 
   /// Create new Cli instance from `clap::ArgMaches<'a>` instance.
@@ -139,7 +136,7 @@ impl<'a> Cli<'a> {
 
 // Priveate impl block.
 impl<'a> Cli<'a> {
-  /// Creates default `clap::ArgMaches` and builts it in `Cli::parse_args()`.
+  /// Creates default `clap::ArgMatches` and builts it in `Cli::parse_args(...)`.
   fn default_args() -> clap::ArgMatches<'a> {
     App::new(clap::crate_name!())
       .version(clap::crate_version!())
@@ -221,15 +218,15 @@ impl<'a> Cli<'a> {
   }
 
   /// Builds the default argument created in `Cli::default_args()` and retrives the values.
-  fn parse_args(&mut self) {
+  fn parse_args(matches: &clap::ArgMatches) -> Arguments {
     // Process subcommands.
-    match self.matches.subcommand() {
+    let mut args = match matches.subcommand() {
       // "new" subcommand.
       ("new", Some(sub_new)) => {
         // project new <local> <name>
         let path = sub_new.value_of("template").unwrap();
         let name = sub_new.value_of("name").unwrap();
-        self.args = Arguments::new(name, path, None);
+        Arguments::new(name, path, None)
       }
       // "git" subcommand.
       ("git", Some(sub_git)) => {
@@ -237,14 +234,14 @@ impl<'a> Cli<'a> {
         let path = sub_git.value_of("remote").unwrap();
         let name = sub_git.value_of("name").unwrap();
         let branch = sub_git.value_of("branch");
-        self.args = Arguments::new(name, path, branch);
+        Arguments::new(name, path, branch)
       }
       // "init" subcommand.
       ("init", Some(sub_init)) => {
         // project init <repo>
         let path = sub_init.value_of("repo").unwrap();
         // TODO: Add `branch` to arguments.
-        self.args = Arguments::from(path);
+        Arguments::from(path)
       }
       _ => {
         // Unrecognized command or above subcommands was not used.
@@ -252,13 +249,14 @@ impl<'a> Cli<'a> {
           "{} {} {}",
           emoji::SHRUG,
           style("Unrecognized command.\n").bold().yellow(),
-          style(&self.matches.usage()).bold().yellow()
+          style(&matches.usage()).bold().yellow()
         );
         std::process::exit(0);
       }
     };
 
-    self.args.verbose = self.matches.is_present("verbose");
-    self.args.quiet = self.matches.is_present("quiet");
+    args.verbose = matches.is_present("verbose");
+    args.quiet = matches.is_present("quiet");
+    args
   }
 }

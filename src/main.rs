@@ -8,8 +8,13 @@ fn main() {
   match template.generate() {
     Ok(_) => {
       println!("{}", style("Go to project's directory:").bold());
-      println!("\tcd {}", cli.args.project.rel_path().display());
-      println!("\tls");
+      if cfg!(unix) {
+        println!("\t$ cd {}", cli.args.project.rel_path().display());
+        println!("\t$ ls");
+      } else {
+        println!("\t> cd {}", cli.args.project.rel_path().display());
+        println!("\t> dir")
+      }
     }
     Err(err) => eprintln!(
       "{} {}",
