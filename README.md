@@ -9,6 +9,9 @@
 
 > Command line utility to create new project template.
 
+![CI](https://github.com/victor-iyi/project/workflows/CI/badge.svg)
+![Audit](https://github.com/victor-iyi/project/workflows/Audit/badge.svg)
+
 `project` is a command line utility to help developers get up and running as quickly as possible with a new project leveraging other
 projects or pre-existing git repository as a template.
 
