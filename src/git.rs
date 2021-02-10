@@ -1,12 +1,17 @@
-use crate::error::Result;
+use crate::{emoji, error::Result, util};
 
 use cargo::core::GitReference;
+use console::style;
+
 use git2::{
   Cred, RemoteCallbacks, Repository as GitRepository, RepositoryInitOptions,
 };
 use url::Url;
 
-use std::{env, fs, path::Path};
+use std::{
+  env, fs,
+  path::{Path, PathBuf},
+};
 
 #[derive(Debug, Clone)]
 pub struct GitOptions {
@@ -26,19 +31,20 @@ impl GitOptions {
     }
   }
 
-  pub fn path(&self) -> &str {
-    self.remote.path().trim_start_matches('/')
+  /// Returns a `tempdir` where template will be cloned locally.
+  #[inline]
+  pub fn path(&self) -> PathBuf {
+    // self.remote.path().trim_start_matches('/')
+    // util::basename(self.remote.path()).into()
+    env::temp_dir().join(util::basename(self.remote.path()))
   }
 
   pub fn clone_repo(&self) -> Result<()> {
-    // let temp = Builder::new().prefix(template_dir).tempdir()?;
-    // printnl!("Temporary dir: {}", temp.path());
-
     // Local path where remote repo will be cloned.
-    let clone_path = Path::new(self.path());
+    let path = self.path();
 
     // Clone the project.
-    // let _repo = match GitRepository::clone(self.remote.as_str(), clone_path) {
+    // let _repo = match GitRepository::clone(self.remote.as_str(), &path) {
     //   Ok(repo) => repo,
     //   Err(e) => panic!("Failed to clone: {}", e),
     // };
@@ -47,6 +53,7 @@ impl GitOptions {
     let mut callbacks = RemoteCallbacks::new();
     callbacks.credentials(|_url, username_from_url, _allowed_types| {
       Cred::ssh_key(
+        // TODO: If `username_from_url` is None - Project is likely a private repo.
         username_from_url.unwrap(),
         None,
         Path::new(&format!("{}/.ssh/id_rsa", env::var("HOME").unwrap())),
@@ -63,19 +70,19 @@ impl GitOptions {
     builder.fetch_options(fo);
 
     // Create clone directory if it doesn't exist.
-    if !clone_path.exists() {
-      fs::create_dir_all(clone_path)?;
+    if !path.exists() {
+      fs::create_dir_all(&path)?;
       // } else {
       //   // Remove the contents of the directory.
-      //   fs::remove_dir_all(clone_path)?;
-      //   fs::create_dir_all(clone_path)?;
+      //   fs::remove_dir_all(&path)?;
+      //   fs::create_dir_all(&path)?;
     }
 
     // Clone the project.
-    builder.clone(self.remote.as_str(), clone_path)?;
+    builder.clone(self.remote.as_str(), &path)?;
 
     // Remove ".git" folder in cloned repo.
-    self.remove_git_history(clone_path);
+    self.remove_git_history(&path);
 
     // Successfully cloned.
     Ok(())
@@ -83,15 +90,27 @@ impl GitOptions {
 
   #[inline]
   fn remove_git_history(&self, dir: &Path) {
-    fs::remove_dir_all(dir.join(".git"))
-      .unwrap_or_else(|err| panic!("Could not clean up git history: {}", err));
+    fs::remove_dir_all(dir.join(".git")).unwrap_or_else(|err| {
+      eprintln!(
+        "{} {} {}",
+        emoji::WARN,
+        style("Could not clean up git history: {}").bold().yellow(),
+        style(err).bold().yellow()
+      )
+    });
   }
 
   pub fn branch(&self) -> String {
     match &self.branch {
       GitReference::Branch(b) => b.to_owned(),
       GitReference::DefaultBranch => {
-        self.get_default_branch().expect("Unable to fetch `HEAD`.")
+        self.get_default_branch().unwrap_or_else(|_| {
+          panic!(
+            "{} {}",
+            emoji::ERROR,
+            style("Unable to fetch `HEAD`.").bold().red()
+          )
+        })
       }
       _ => {
         unreachable!()
@@ -119,16 +138,26 @@ pub fn init(project_dir: &Path, branch: &str) -> Result<GitRepository> {
   opt.initial_head(branch);
 
   Ok(
-    GitRepository::init_opts(project_dir, &opt)
-      .unwrap_or_else(|_| panic!("Couldn't init new repository")),
+    GitRepository::init_opts(project_dir, &opt).unwrap_or_else(|_| {
+      panic!(
+        "{} {}",
+        emoji::ERROR,
+        style("Couldn't init new repository").bold().red()
+      )
+    }),
   )
 }
 
 /// Delete temporary template repo from base `template_dir`.
 #[inline]
 pub fn delete_local_repo(template_dir: &dyn AsRef<Path>) -> Result<()> {
-  fs::remove_dir_all(template_dir)
-    .unwrap_or_else(|_| panic!("Error deleting local repo"));
+  fs::remove_dir_all(template_dir).unwrap_or_else(|_| {
+    panic!(
+      "{} {}",
+      emoji::ERROR,
+      style("Could not delete local repo").bold().red()
+    )
+  });
 
   Ok(())
 }

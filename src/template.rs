@@ -1,7 +1,9 @@
+use console::style;
 use walkdir::{DirEntry, WalkDir};
 
 use crate::{
   cli::{Arguments, Cli},
+  emoji,
   error::Result,
   git::{self, GitOptions},
   info::{ProjectInfo, TemplateOptions},
@@ -13,7 +15,7 @@ use crate::{
 
 use std::{
   collections::HashMap,
-  fs,
+  fmt, fs,
   ops::Deref,
   path::{Path, PathBuf},
 };
@@ -24,7 +26,23 @@ pub(crate) mod helpers;
 pub(crate) mod parser;
 
 /// Template builds and generates the project from a given template.
+///
+/// # Example
+///
+/// ```rust
+/// use project::{ProjectInfo, TemplateOptions, Template};
+///
+/// # #[allow(clippy::needless_doctest_main)]
+/// fn main() {
+///   let project = ProjectInfo::from("my-project");
+///   let options = TemplateOptions::new("victor-iyi/project", None);
+///
+///   let template = Template::new(&project, &options);
+/// # std::fs::remove_dir_all(&project.path()).unwrap();
+/// }
+/// ```
 pub struct Template {
+  #[doc(hidden)]
   template: TemplateMeta,
 }
 
@@ -40,11 +58,37 @@ impl Template {
 }
 
 impl Template {
+  /// Most important function for this entire library is this method.
+  ///
+  /// This is where all the parts come together to build new project from a template source,
+  /// walking through the source directories and performing one of three tasks:
+  /// - Creating a new directory in target location if entry is a directory.
+  /// - Copying files over to the target location if entry is a regular file.
+  /// - Performing template rendering if entry is a template file.
+  ///
+  /// It also applies necessary configurations: like filtering excluded files & directories,
+  /// renaming target files and directories and many more.
+  ///
+  /// # Example
+  ///
+  /// ```rust, no_run
+  /// use project::{ProjectInfo, TemplateOptions, Template};
+  ///
+  /// # #[allow(clippy::needless_doctest_main)]
+  /// # fn main() {
+  ///   let project = ProjectInfo::from("my-project");
+  ///   let options = TemplateOptions::new("victor-iyi/project", None);
+  ///
+  ///   let template = Template::new(&project, &options);
+  ///   assert!(&template.generate().is_ok());
+  /// # std::fs::remove_dir_all(&project.path()).unwrap();
+  /// # }
+  /// ```
   pub fn generate(&self) -> Result<()> {
     // Project path.
-    let project_dir = self.project_info.path.as_path();
+    let project_dir = &self.project_info.path;
     // Template path.
-    let template_dir = self.template_options.path();
+    let template_dir = &self.template_options.path();
 
     // Walk the `template_dir`.
     for entry in WalkDir::new(template_dir)
@@ -64,7 +108,13 @@ impl Template {
       }
     }
 
-    println!("Done generating template into {}", project_dir.display());
+    println!("{} {}", emoji::SPARKLE, style("Finished!").bold().green(),);
+    println!(
+      "{} \"{}\"",
+      style("Project created in: ").bold().white(),
+      style(&self.project_info.path().display()).bold().yellow()
+    );
+
     Ok(())
   }
 
@@ -192,6 +242,16 @@ impl Deref for Template {
   }
 }
 
+impl fmt::Debug for Template {
+  fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    f.debug_struct("Template")
+      .field("option", &self.template_options)
+      .field("project", &self.project_info)
+      .field("config", &self.config)
+      .finish()
+  }
+}
+
 /// Template & project comes together to load the template from remote or local
 /// path, loads the `"template.toml"` config file, and initializes git for the
 /// new project.
@@ -211,16 +271,16 @@ impl TemplateMeta {
     project_info: &ProjectInfo,
     template_options: &TemplateOptions,
   ) -> Self {
-    println!("\nProjectInfo: {:?}", project_info);
-    println!("TemplateOptions: {:?}\n", template_options);
-
     if let TemplateOptions::Remote(opts) = template_options {
       // Download template if it's a remote template.
       TemplateMeta::load_remote(opts).unwrap();
     }
 
     TemplateMeta {
-      config: TemplateConfig::new(template_options.path(), &project_info.name),
+      config: TemplateConfig::new(
+        &template_options.path(),
+        &project_info.name_snake_case(),
+      ),
       template_options: template_options.clone(),
       project_info: project_info.clone(),
     }
@@ -228,11 +288,21 @@ impl TemplateMeta {
 
   /// Clone remote repo into local path.
   fn load_remote(git_opts: &GitOptions) -> Result<()> {
-    println!("Cloning remote repo into {}", git_opts.path());
+    println!(
+      "{} {} {}",
+      emoji::WRENCH,
+      style("Cloning remote repo into ").bold(),
+      style(&git_opts.path().display()).bold().white()
+    );
 
     match git_opts.clone_repo() {
       Ok(_) => {}
-      Err(err) => panic!("Could not create template: {}", err),
+      Err(err) => panic!(
+        "{} {} {}",
+        emoji::ERROR,
+        style("Could not create template:").bold().red(),
+        style(err).bold().red()
+      ),
     }
     Ok(())
   }
@@ -254,10 +324,14 @@ impl TemplateMeta {
   }
 
   pub(crate) fn get_ignored(&self) -> (bool, Vec<String>) {
-    if self.config.filters.include.is_some() {
-      (true, self.config.filters.include.clone().unwrap())
+    let filters = match &self.config.filters {
+      Some(f) => f,
+      None => panic!("No Filters."),
+    };
+    if filters.include.is_some() {
+      (true, filters.include.clone().unwrap())
     } else {
-      (true, self.config.filters.exclude.clone().unwrap())
+      (true, filters.exclude.clone().unwrap())
     }
   }
 }
@@ -278,7 +352,11 @@ impl Drop for TemplateMeta {
     match &self.template_options {
       TemplateOptions::Remote(git_opts) => {
         // Delete cloned repo.
-        println!("Cleaning up clone templates...");
+        println!(
+          "{} {}",
+          emoji::WRENCH,
+          style("Cleaning up cloned templates...").bold().yellow()
+        );
         git::delete_local_repo(&git_opts.path()).unwrap();
       }
       TemplateOptions::Local(_) => {}

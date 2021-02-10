@@ -1,9 +1,11 @@
 use crate::{
+  emoji,
   error::{Error, Result},
   git::GitOptions,
   util,
 };
 
+use console::style;
 use heck::{KebabCase, SnakeCase};
 use url::{ParseError, Url};
 
@@ -34,13 +36,29 @@ impl ProjectInfo {
     // Return absolute form of `path`.
     let path = match path.canonicalize() {
       Ok(p) => p,
-      Err(e) => panic!("{}", e),
+      Err(e) => panic!(
+        "{} {} \"{}\" {}",
+        emoji::ERROR,
+        style("Could not resolve path: ").bold().red(),
+        style(&path.display()).bold(),
+        style(e).bold().red()
+      ),
     };
 
-    ProjectInfo {
-      name: util::filename(&path).into(),
-      path,
+    let mut name: String = util::filename(&path).into();
+    // TODO: add flag for converting project name to kebab case.
+    if true {
+      name = name.to_snake_case();
     }
+
+    println!(
+      "{} {} {}",
+      emoji::WRENCH,
+      style("Creating project: ").bold().white(),
+      style(&name).bold().yellow()
+    );
+
+    ProjectInfo { name, path }
   }
 }
 
@@ -63,6 +81,17 @@ impl ProjectInfo {
   /// Get owned project path.
   pub fn path(&self) -> PathBuf {
     self.path.clone()
+  }
+
+  /// Get relative path.
+  pub fn rel_path(&self) -> PathBuf {
+    let path = self.path();
+    let curr_dir = env::current_dir().unwrap_or_else(|_| ".".into());
+
+    match util::diff_paths(&path, &curr_dir) {
+      Some(p) => p,
+      None => path,
+    }
   }
 
   pub fn path_kebab_case(&self) -> String {
@@ -103,6 +132,53 @@ pub enum TemplateOptions {
   Remote(GitOptions),
 }
 
+#[allow(dead_code)]
+#[derive(Debug)]
+pub enum RemoteSource {
+  GitHub,
+  GitLab,
+  BitBucket,
+}
+
+#[allow(dead_code)]
+impl RemoteSource {
+  pub fn to_str(&self) -> &str {
+    match self {
+      RemoteSource::GitHub => "github",
+      RemoteSource::GitLab => "gitlab",
+      RemoteSource::BitBucket => "bitbucket",
+    }
+  }
+
+  pub fn from_str(s: &str) -> Self {
+    match s {
+      "github" => Self::GitHub,
+      "gitlab" => Self::GitLab,
+      "bitbucket" => Self::BitBucket,
+      _ => panic!(
+        "{} {} {}",
+        emoji::ERROR,
+        style("Unknown source:").bold().red(),
+        style(s).bold()
+      ),
+    }
+  }
+
+  pub fn get_remote(&self, username: &str, repo: &str) -> String {
+    match self {
+      RemoteSource::GitHub => {
+        format!("https://github.com/{}/{}.git", username, repo)
+      }
+      RemoteSource::GitLab => {
+        format!("https://gitlab.com/{}/{}.git", username, repo)
+      }
+      RemoteSource::BitBucket => {
+        format!("https://{0}@bitbucket.org/{0}/{1}", username, repo)
+      }
+    }
+  }
+}
+
 impl TemplateOptions {
   /// Creates a `TemplateOption` given a file path or URL. URL can either be a full
   /// git URL e.g https://github.com/username/repo  or a shortened form e.g
@@ -118,8 +194,18 @@ impl TemplateOptions {
     // relative/path/to/template
     match Self::parse_path(path, branch.map(|s| s.to_string())) {
       Ok(opts) => opts,
-      Err(err) => panic!("ERROR: {}", err),
+      Err(err) => panic!(
+        "{} {} {}",
+        emoji::ERROR,
+        style("ERROR: ").bold().red(),
+        style(err).bold().red()
+      ),
     }
+  }
+
+  pub fn set_source(&self, _source: &str) {
+    // TODO: Find a way to add source as part of the template's remote options.
+    // self.source = RemoteSource::from_str(source);
   }
 
   /// Parses a given path as URL or local file path.
@@ -139,7 +225,22 @@ impl TemplateOptions {
           Ok(p) => Self::Local(p),
           Err(_err) => {
             // Short Git URI.
-            Self::parse_path(&format!("https://github.com/{}", path), branch)?
+            // TODO: Add `--source` flag to cli.
+            let source = RemoteSource::GitHub;
+            let path = match source {
+              RemoteSource::GitHub => {
+                format!("https://github.com/{}.git", path)
+              }
+              RemoteSource::GitLab => {
+                format!("https://gitlab.com/{}.git", path)
+              }
+              RemoteSource::BitBucket => {
+                // FIXME: Re-format for bit-bucket.
+                // https://username@bitbucket.org/username/repo.git
+                format!("https://username@bitbucket.org/{}.git", path)
+              }
+            };
+            Self::parse_path(&path, branch)?
           }
         }
       }
@@ -153,10 +254,10 @@ impl TemplateOptions {
 }
 
 impl TemplateOptions {
-  pub fn path(&self) -> &Path {
+  pub fn path(&self) -> PathBuf {
     match self {
-      TemplateOptions::Local(p) => p,
-      TemplateOptions::Remote(g) => &Path::new(g.path()),
+      TemplateOptions::Local(p) => p.to_owned(),
+      TemplateOptions::Remote(g) => g.path(),
     }
   }
 }

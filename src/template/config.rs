@@ -1,21 +1,21 @@
 #![allow(dead_code)]
 
-use std::collections::HashMap;
-use std::path::Path;
+use std::{collections::HashMap, path::Path};
 
+use console::style;
 use serde::Deserialize;
 
-use crate::{error::Result, template::parser, Error, ErrorKind};
+use crate::{emoji, error::Result, template::parser, Error, ErrorKind};
 
 /// Default template file containing variable template substitution.
 pub(crate) const TEMPLATE_FILE: &str = "template.toml";
 
-#[derive(Deserialize)]
+#[derive(Debug, Deserialize)]
 pub(crate) struct TemplateConfig {
   /// Replace these variable keys with their value in template files.
   pub(crate) variables: Option<HashMap<String, String>>,
   /// The files you want to include as template.
-  pub(crate) filters: Filters,
+  pub(crate) filters: Option<Filters>,
   /// Files or folders to rename.
   pub(crate) rename: Option<HashMap<String, String>>,
 }
@@ -26,11 +26,22 @@ impl TemplateConfig {
     match Self::parse(&template_dir, project_name) {
       Ok(config) => config,
       Err(err) if err.kind() == &ErrorKind::NotFound => {
-        eprintln!("Using default template configurations: {}", err);
+        eprintln!(
+          "{} {}",
+          emoji::SHRUG,
+          style("Using default template configurations")
+            .bold()
+            .yellow()
+        );
         TemplateConfig::default()
       }
       Err(err) => {
-        panic!("ERROR: {}", err);
+        panic!(
+          "{} {} {}",
+          emoji::ERROR,
+          style("ERROR:").bold().red(),
+          style(err).bold().red()
+        );
       }
     }
   }
@@ -50,12 +61,22 @@ impl TemplateConfig {
     let mut config: TemplateConfig = toml::from_str(&parsed)?;
 
     // Assert both `include` & `exclude` isn't both provided.
-    if config.filters.include.is_some() && config.filters.exclude.is_some() {
-      config.filters.exclude = None;
-      eprintln!(
-        "One of `include` or `exclude` should be provided, but not both."
-      )
-    }
+    match &mut config.filters {
+      Some(f) if f.include.is_some() && f.exclude.is_some() => {
+        f.exclude = None;
+        eprintln!(
+          "{} {}",
+          emoji::WARN,
+          style(
+            "One of `include` or `exclude` should be provided, but not both."
+          )
+          .bold()
+          .yellow()
+        );
+      }
+      Some(_) => (),
+      None => (),
+    };
 
     // Return the parsed configuration.
     Ok(config)
@@ -67,14 +88,14 @@ impl Default for TemplateConfig {
     TemplateConfig {
       variables: None,
       rename: None,
-      filters: Filters::default(),
+      filters: Some(Filters::default()),
     }
   }
 }
 
 /// Files or Directories to be included or ignored while parsing
 /// templates.
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Clone, Deserialize)]
 pub(crate) struct Filters {
   /// The files you want to include in generated projects.
   pub(crate) include: Option<Vec<String>>,
