@@ -254,10 +254,10 @@ impl TemplateOptions {
 }
 
 impl TemplateOptions {
-  pub fn path(&self) -> &Path {
+  pub fn path(&self) -> PathBuf {
     match self {
-      TemplateOptions::Local(p) => p,
-      TemplateOptions::Remote(g) => &Path::new(g.path()),
+      TemplateOptions::Local(p) => p.to_owned(),
+      TemplateOptions::Remote(g) => g.path(),
     }
   }
 }

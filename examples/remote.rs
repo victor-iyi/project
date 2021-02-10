@@ -1,23 +1,15 @@
-// use project::{Cli, Template};
-
-// fn main() {
-//   let cli = Cli::new();
-//   let template = Template::from(&cli.args);
-//   match template.generate() {
-//     Ok(_) => println!("Success!"),
-//     Err(err) => eprintln!("ERROR: {}", err),
-//   }
-// }
+//! Test using a remote template.
+//!
+use project::{ProjectInfo, Template, TemplateOptions};
 
 use console::style;
-use project::{ProjectInfo, Template, TemplateOptions};
 
 fn main() {
   let project = ProjectInfo::from("./my-project");
-  let options = TemplateOptions::new(
-    "https://gitlab.com/victor-iyi/template-test.git",
-    None,
-  );
+  let options =
+    TemplateOptions::new("https://github.com/victor-iyi/project", None);
+  /* -- OR -- */
+  // let options = TemplateOptions::new("victor-iyi/project", None);
 
   let template = Template::new(&project, &options);
   match template.generate() {

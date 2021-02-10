@@ -94,13 +94,13 @@ To start a new project from a local template:
 ```sh
 $ project new ../relative/path/to/template my-project
 
-ProjectInfo: ProjectInfo { name: "my-project", path: "/Users/victor/dev/project/my-project" }
-TemplateOptions: Local("/Users/victor/dev/hbs-template")
+ProjectInfo: ProjectInfo { name: "my-project", path: "/Users/user/project/my-project" }
+TemplateOptions: Local("/Users/user/hbs-template")
 
-Done generating template into /Users/victor/dev/project/my-project
+Done generating template into /Users/user/project/my-project
 Success!
 Project name: my-project
-Project path: /Users/victor/dev/project/my-project
+Project path: /Users/user/project/my-project
 Verbose: false | quite: false
 ```
 
@@ -119,6 +119,24 @@ which are provided out-of-the-box. Currently supported palceholders are:
 
 
 ### Example
+
+```rust
+use project::{ProjectInfo, TemplateOptions, Template};
+
+fn main() {
+    let project = ProjectInfo::from("path/to/project");
+    let options = TemplateOptions::new("path/to/template");
+
+    let template = Template::new(&project, &options);
+    match &template.generate() {
+        Ok(_) => {
+            println!("Finished!");
+            println!("\tcd {}", &project.rel_path().display());
+        }
+        Err(err) => eprintln!("Error generating project. {}", err),
+    }
+}
+```
 
 A simple example of the `"template.toml"` configuration file.
 
