@@ -1,5 +1,5 @@
 //! Test using the command line interface.
-//! 
+//!
 use project::{Cli, Template};
 
 fn main() {
