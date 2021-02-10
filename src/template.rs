@@ -30,21 +30,19 @@ pub(crate) mod parser;
 /// # Example
 ///
 /// ```rust
-/// use project::{Template, ProjectInfo, TemplateOptions};
+/// use project::{ProjectInfo, TemplateOptions, Template};
 ///
 /// # #[allow(clippy::needless_doctest_main)]
 /// fn main() {
-///   let project = ProjectInfo::from("path/to/project");
-///   let temp_options = TemplateOptions::new("path/to/template", None);
+///   let project = ProjectInfo::from("my-project");
+///   let options = TemplateOptions::new("victor-iyi/project", None);
 ///
-///   let template = Template::new(&project, &temp_options);
-///   match template.generate() {
-///     Ok(_) => println!("Project generated!\ncd {}", &project.path().display()),
-///     Err(e) => eprintln!("Error occured: {}", e),
-///   }
+///   let template = Template::new(&project, &options);
+/// # std::fs::remove_dir_all(&project.path()).unwrap();
 /// }
 /// ```
 pub struct Template {
+  #[doc(hidden)]
   template: TemplateMeta,
 }
 
@@ -70,11 +68,27 @@ impl Template {
   ///
   /// It also applies necessary configurations: like filtering excluded files & directories,
   /// renaming target files and directories and many more.
+  ///
+  /// # Example
+  ///
+  /// ```rust, no_run
+  /// use project::{ProjectInfo, TemplateOptions, Template};
+  ///
+  /// # #[allow(clippy::needless_doctest_main)]
+  /// # fn main() {
+  ///   let project = ProjectInfo::from("my-project");
+  ///   let options = TemplateOptions::new("victor-iyi/project", None);
+  ///
+  ///   let template = Template::new(&project, &options);
+  ///   assert!(&template.generate().is_ok());
+  /// # std::fs::remove_dir_all(&project.path()).unwrap();
+  /// # }
+  /// ```
   pub fn generate(&self) -> Result<()> {
     // Project path.
-    let project_dir = self.project_info.path.as_path();
+    let project_dir = &self.project_info.path;
     // Template path.
-    let template_dir = self.template_options.path();
+    let template_dir = &self.template_options.path();
 
     // Walk the `template_dir`.
     for entry in WalkDir::new(template_dir)
@@ -264,7 +278,7 @@ impl TemplateMeta {
 
     TemplateMeta {
       config: TemplateConfig::new(
-        template_options.path(),
+        &template_options.path(),
         &project_info.name_snake_case(),
       ),
       template_options: template_options.clone(),
@@ -278,7 +292,7 @@ impl TemplateMeta {
       "{} {} {}",
       emoji::WRENCH,
       style("Cloning remote repo into ").bold(),
-      style(&git_opts.path()).bold().white()
+      style(&git_opts.path().display()).bold().white()
     );
 
     match git_opts.clone_repo() {
