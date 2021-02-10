@@ -2,12 +2,16 @@ use crate::{emoji, error::Result, util};
 
 use cargo::core::GitReference;
 use console::style;
+
 use git2::{
   Cred, RemoteCallbacks, Repository as GitRepository, RepositoryInitOptions,
 };
 use url::Url;
 
-use std::{env, fs, path::Path};
+use std::{
+  env, fs,
+  path::{Path, PathBuf},
+};
 
 #[derive(Debug, Clone)]
 pub struct GitOptions {
@@ -27,21 +31,20 @@ impl GitOptions {
     }
   }
 
+  /// Returns a `tempdir` where template will be cloned locally.
   #[inline]
-  pub fn path(&self) -> &str {
+  pub fn path(&self) -> PathBuf {
     // self.remote.path().trim_start_matches('/')
-    util::basename(self.remote.path())
+    // util::basename(self.remote.path()).into()
+    env::temp_dir().join(util::basename(self.remote.path()))
   }
 
   pub fn clone_repo(&self) -> Result<()> {
-    // let temp = Builder::new().prefix(template_dir).tempdir()?;
-    // printnl!("Temporary dir: {}", temp.path());
-
     // Local path where remote repo will be cloned.
-    let clone_path = Path::new(self.path());
+    let path = self.path();
 
     // Clone the project.
-    // let _repo = match GitRepository::clone(self.remote.as_str(), clone_path) {
+    // let _repo = match GitRepository::clone(self.remote.as_str(), &path) {
     //   Ok(repo) => repo,
     //   Err(e) => panic!("Failed to clone: {}", e),
     // };
@@ -67,19 +70,19 @@ impl GitOptions {
     builder.fetch_options(fo);
 
     // Create clone directory if it doesn't exist.
-    if !clone_path.exists() {
-      fs::create_dir_all(clone_path)?;
+    if !path.exists() {
+      fs::create_dir_all(&path)?;
       // } else {
       //   // Remove the contents of the directory.
-      //   fs::remove_dir_all(clone_path)?;
-      //   fs::create_dir_all(clone_path)?;
+      //   fs::remove_dir_all(&path)?;
+      //   fs::create_dir_all(&path)?;
     }
 
     // Clone the project.
-    builder.clone(self.remote.as_str(), clone_path)?;
+    builder.clone(self.remote.as_str(), &path)?;
 
     // Remove ".git" folder in cloned repo.
-    self.remove_git_history(clone_path);
+    self.remove_git_history(&path);
 
     // Successfully cloned.
     Ok(())
