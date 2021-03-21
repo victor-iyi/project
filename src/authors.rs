@@ -1,4 +1,4 @@
-use crate::{emoji, error::Result};
+use crate::emoji;
 
 use console::style;
 use git2::{Config as GitConfig, Repository as GitRepository};
