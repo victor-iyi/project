@@ -12,11 +12,12 @@ on:
 jobs:
   test:
     name: Test
-    runs-on: ubuntu-latest
     continue-on-error: ${{ matrix.rust == 'nightly' }}
     strategy:
       matrix:
         rust: [stable, nightly]
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
 
     steps:
       - name: Checkout the source code
