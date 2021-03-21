@@ -19,7 +19,7 @@ use std::env;
 
 /// Retrieve author information from environment variables.
 ///
-pub(crate) fn discover_author() -> Result<(String, Option<String>)> {
+pub(crate) fn discover_author() -> (String, Option<String>) {
   let git_config = find_real_git_config();
   let git_config = git_config.as_ref();
 
@@ -75,7 +75,7 @@ pub(crate) fn discover_author() -> Result<(String, Option<String>)> {
     s.to_string()
   });
 
-  Ok((name, email))
+  (name, email)
 }
 
 fn get_environment_variable(variables: &[&str]) -> Option<String> {

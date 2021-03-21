@@ -273,7 +273,7 @@ impl TemplateMeta {
   ) -> Self {
     if let TemplateOptions::Remote(opts) = template_options {
       // Download template if it's a remote template.
-      TemplateMeta::load_remote(opts).unwrap();
+      TemplateMeta::load_remote(opts);
     }
 
     TemplateMeta {
@@ -287,7 +287,7 @@ impl TemplateMeta {
   }
 
   /// Clone remote repo into local path.
-  fn load_remote(git_opts: &GitOptions) -> Result<()> {
+  fn load_remote(git_opts: &GitOptions) {
     println!(
       "{} {} {}",
       emoji::WRENCH,
@@ -304,7 +304,6 @@ impl TemplateMeta {
         style(err).bold().red()
       ),
     }
-    Ok(())
   }
 }
 

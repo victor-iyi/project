@@ -56,8 +56,7 @@ pub(super) fn parse_template_file(
   file.read_to_string(&mut template_string)?;
 
   // Get author's name & email from env.
-  let (author_name, author_email) =
-    authors::discover_author().unwrap_or_default();
+  let (author_name, author_email) = authors::discover_author();
 
   // Perform replacement.
   default_variables(
